@@ -49,8 +49,9 @@ export class FollowupService {
     input: CreateFollowupInput,
   ) {
     const dueDate = new Date(input.dueAt);
-    if (isNaN(dueDate.getTime()) || dueDate <= new Date()) {
-      throw new BadRequestError('dueAt must be a valid future datetime.');
+    const skewTolerance = new Date(Date.now() - 5 * 60 * 1000);
+    if (isNaN(dueDate.getTime()) || dueDate < skewTolerance) {
+      throw new BadRequestError('Due date & time must be in the future (or current time).');
     }
 
     // Determine target assignee

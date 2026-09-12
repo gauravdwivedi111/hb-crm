@@ -65,6 +65,7 @@ export const EnquiryDetailPage: React.FC = () => {
   const [followupDueAt, setFollowupDueAt] = useState<string>('');
   const [followupPurpose, setFollowupPurpose] = useState<string>('Follow up on requirement discussion');
   const [followupFrequency, setFollowupFrequency] = useState<FollowupFrequency>('ONE_TIME');
+  const [followupAssigneeId, setFollowupAssigneeId] = useState<string>('');
   const [isSubmittingFollowup, setIsSubmittingFollowup] = useState<boolean>(false);
 
   const [isAssignModalOpen, setIsAssignModalOpen] = useState<boolean>(false);
@@ -188,10 +189,11 @@ export const EnquiryDetailPage: React.FC = () => {
     e.preventDefault();
     if (!id || !followupDueAt) return;
 
-    // Check future date
+    // Check future date with 5-minute skew tolerance
     const selectedDate = new Date(followupDueAt);
-    if (isNaN(selectedDate.getTime()) || selectedDate <= new Date()) {
-      alert('Due date must be in the future.');
+    const skewTolerance = new Date(Date.now() - 5 * 60 * 1000);
+    if (isNaN(selectedDate.getTime()) || selectedDate < skewTolerance) {
+      alert('Due date and time must be in the future (or current time).');
       return;
     }
 
@@ -202,6 +204,7 @@ export const EnquiryDetailPage: React.FC = () => {
         dueAt: selectedDate.toISOString(),
         purpose: followupPurpose.trim() || undefined,
         frequency: followupFrequency,
+        assignedToId: followupAssigneeId || enquiry?.assignedToId || undefined,
       });
       setIsFollowupModalOpen(false);
       setFollowupDueAt('');
@@ -526,6 +529,7 @@ export const EnquiryDetailPage: React.FC = () => {
                 const tzOffset = tomorrow.getTimezoneOffset() * 60000;
                 const localISOTime = new Date(tomorrow.getTime() - tzOffset).toISOString().slice(0, 16);
                 setFollowupDueAt(localISOTime);
+                setFollowupAssigneeId(enquiry.assignedToId || user?.id || '');
                 setIsFollowupModalOpen(true);
               }}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-700 text-xs font-semibold text-slate-700 transition-all shadow-xs cursor-pointer"
@@ -1056,6 +1060,36 @@ export const EnquiryDetailPage: React.FC = () => {
                   <option value="MONTHLY">Monthly</option>
                 </select>
               </div>
+
+              {/* Assignee Selection (Manager+ or when enquiry is assigned) */}
+              {isManagerPlus && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Assign Follow-up To
+                  </label>
+                  <select
+                    value={followupAssigneeId}
+                    onChange={(e) => setFollowupAssigneeId(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 text-slate-900 font-medium"
+                  >
+                    {enquiry?.assignedTo && (
+                      <option value={enquiry.assignedTo.id}>
+                        {enquiry.assignedTo.name} ({enquiry.assignedTo.role} — Enquiry Assignee)
+                      </option>
+                    )}
+                    {user && enquiry?.assignedToId !== user.id && (
+                      <option value={user.id}>{user.name} ({user.role} — Myself)</option>
+                    )}
+                    {teamMembers
+                      .filter((m) => m.id !== enquiry?.assignedToId && m.id !== user?.id)
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.role})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button

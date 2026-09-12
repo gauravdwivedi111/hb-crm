@@ -62,6 +62,7 @@ interface ApiResponse<T> {
   status: 'success' | 'error';
   data: T;
   message?: string;
+  errors?: Array<{ field?: string; message: string }>;
 }
 
 interface RequestConfig extends RequestInit {
@@ -162,7 +163,14 @@ export async function request<T>(endpoint: string, options: RequestConfig = {}):
   const responseJson = (await response.json()) as ApiResponse<T>;
 
   if (!response.ok || responseJson.status === 'error') {
-    throw new Error(responseJson.message || `Request failed with status ${response.status}`);
+    let msg = responseJson.message || `Request failed with status ${response.status}`;
+    if (responseJson.errors && Array.isArray(responseJson.errors) && responseJson.errors.length > 0) {
+      const details = responseJson.errors
+        .map((e) => (e.field ? `${e.field}: ${e.message}` : e.message))
+        .join(', ');
+      msg = `${msg} (${details})`;
+    }
+    throw new Error(msg);
   }
 
   return responseJson.data;

@@ -14,9 +14,11 @@ export const createFollowupSchema = z
       .refine(
         (val) => {
           const d = new Date(val);
-          return !isNaN(d.getTime()) && d > new Date();
+          // Allow up to 5 minutes clock skew between client and server
+          const skewTolerance = new Date(Date.now() - 5 * 60 * 1000);
+          return !isNaN(d.getTime()) && d >= skewTolerance;
         },
-        { message: 'dueAt must be a valid future ISO datetime' },
+        { message: 'Due date & time must be in the future (or current time)' },
       ),
     purpose: z.string().trim().optional().nullable(),
     frequency: z.nativeEnum(FollowupFrequency, {
