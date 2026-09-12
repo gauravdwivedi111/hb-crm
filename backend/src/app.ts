@@ -43,7 +43,7 @@ export const createApp = (): Express => {
     }),
   );
 
-  // Active CORS origin validation - rejects unauthorized origins with 403 Forbidden
+  // Active CORS origin validation - allows configured origins, wildcard, vercel, and localhost
   const allowedOrigins = config.frontendUrl
     .split(',')
     .map((url) => url.trim().replace(/\/+$/, ''));
@@ -56,7 +56,13 @@ export const createApp = (): Express => {
           return callback(null, true);
         }
         const normalizedOrigin = origin.trim().replace(/\/+$/, '');
-        if (allowedOrigins.includes(normalizedOrigin)) {
+        if (
+          allowedOrigins.includes('*') ||
+          allowedOrigins.includes(normalizedOrigin) ||
+          normalizedOrigin.endsWith('.vercel.app') ||
+          normalizedOrigin.endsWith('.onrender.com') ||
+          normalizedOrigin.startsWith('http://localhost:')
+        ) {
           return callback(null, true);
         }
         return callback(new ForbiddenError(`Origin '${origin}' is not allowed by CORS`));
