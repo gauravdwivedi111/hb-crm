@@ -1,0 +1,297 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  AGM
+  DGM
+  EMPLOYEE
+}
+
+enum EnquiryStatus {
+  NEW
+  ASSIGNED
+  CONTACTED
+  FOLLOW_UP_REQUIRED
+  QUOTATION_SENT
+  NEGOTIATION
+  CONVERTED
+  LOST
+  ON_HOLD
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ActivityType {
+  CALL_MADE
+  CALL_RECEIVED
+  WHATSAPP
+  EMAIL_SENT
+  MEETING
+  SITE_VISIT
+  QUOTATION_SENT
+  FOLLOW_UP_COMPLETED
+  REMARK_ADDED
+  STATUS_CHANGED
+  ENQUIRY_ASSIGNED
+  FOLLOW_UP_SCHEDULED
+}
+
+enum FollowupStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+}
+
+enum FollowupFrequency {
+  ONE_TIME
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  CUSTOM
+}
+
+enum QuotationStatus {
+  CREATED
+  SENT
+  VIEWED
+  REVISED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model User {
+  id                String    @id @default(cuid())
+  name              String
+  email             String    @unique
+  passwordHash      String
+  role              Role
+  supervisorId      String?
+  supervisor        User?     @relation("Supervision", fields: [supervisorId], references: [id])
+  subordinates      User[]    @relation("Supervision")
+  isActive          Boolean   @default(true)
+  failedLoginCount  Int       @default(0)
+  lockedUntil       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  assignedEnquiries   Enquiry[]      @relation("AssignedEmployee")
+  createdEnquiries    Enquiry[]      @relation("CreatedBy")
+  activities          Activity[]
+  followups           Followup[]
+  quotations          Quotation[]
+  attachments         Attachment[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  statusChanges       StatusHistory[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  tokenHash String   @unique
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Customer {
+  id             String    @id @default(cuid())
+  name           String
+  companyName    String?
+  phone          String
+  email          String?
+  location       String?
+  notes          String?
+  assignedToId   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  enquiries      Enquiry[]
+  followups      Followup[]
+  attachments    Attachment[]
+
+  @@index([phone])
+  @@index([assignedToId])
+}
+
+model Enquiry {
+  id               String        @id @default(cuid())
+  customerId       String
+  customer         Customer      @relation(fields: [customerId], references: [id])
+  companyName      String?
+  phone            String
+  email            String?
+  location         String?
+  source           String?
+  product          String?
+  assignedToId     String?
+  assignedTo       User?         @relation("AssignedEmployee", fields: [assignedToId], references: [id])
+  createdById      String
+  createdBy        User          @relation("CreatedBy", fields: [createdById], references: [id])
+  status           EnquiryStatus @default(NEW)
+  priority         Priority      @default(MEDIUM)
+  expectedValue    Decimal?
+  nextFollowupAt   DateTime?
+  lastContactedAt  DateTime?
+  remarks          String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  activities       Activity[]
+  followups        Followup[]
+  statusHistory    StatusHistory[]
+  quotations       Quotation[]
+  attachments      Attachment[]
+
+  @@index([assignedToId])
+  @@index([status])
+  @@index([customerId])
+}
+
+// Append-only: no update/delete routes should ever be built for this model
+model Activity {
+  id             String       @id @default(cuid())
+  enquiryId      String
+  enquiry        Enquiry      @relation(fields: [enquiryId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  type           ActivityType
+  description    String?
+  previousStatus EnquiryStatus?
+  newStatus      EnquiryStatus?
+  nextFollowupAt DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([enquiryId])
+}
+
+model Followup {
+  id           String            @id @default(cuid())
+  enquiryId    String?
+  enquiry      Enquiry?          @relation(fields: [enquiryId], references: [id])
+  customerId   String?
+  customer     Customer?         @relation(fields: [customerId], references: [id])
+  assignedToId String
+  assignedTo   User              @relation(fields: [assignedToId], references: [id])
+  dueAt        DateTime
+  purpose      String?
+  status       FollowupStatus    @default(PENDING)
+  completedAt  DateTime?
+  frequency    FollowupFrequency @default(ONE_TIME)
+  createdAt    DateTime          @default(now())
+
+  @@index([assignedToId, status])
+  @@index([dueAt])
+}
+
+// Append-only: no update/delete routes should ever be built for this model
+model StatusHistory {
+  id          String        @id @default(cuid())
+  enquiryId   String
+  enquiry     Enquiry       @relation(fields: [enquiryId], references: [id])
+  oldStatus   EnquiryStatus?
+  newStatus   EnquiryStatus
+  changedById String
+  changedBy   User          @relation(fields: [changedById], references: [id])
+  reason      String?
+  createdAt   DateTime      @default(now())
+
+  @@index([enquiryId])
+}
+
+model Quotation {
+  id          String          @id @default(cuid())
+  enquiryId   String
+  enquiry     Enquiry         @relation(fields: [enquiryId], references: [id])
+  createdById String
+  createdBy   User            @relation(fields: [createdById], references: [id])
+  status      QuotationStatus @default(CREATED)
+  amount      Decimal?
+  sentAt      DateTime?
+  respondedAt DateTime?
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([enquiryId])
+}
+
+model Attachment {
+  id           String    @id @default(cuid())
+  enquiryId    String?
+  enquiry      Enquiry?  @relation(fields: [enquiryId], references: [id])
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  uploadedById String
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id])
+  fileKey      String    // S3/R2 object key, never store the file itself
+  fileName     String
+  fileType     String
+  fileSize     Int
+  createdAt    DateTime  @default(now())
+}
+
+model Notification {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  type             String
+  message          String
+  relatedEnquiryId String?
+  read             Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+// Append-only: no update/delete routes should ever be built for this model
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
+
+model SystemSettings {
+  id                        String   @id @default("default")
+  allowEmployeeReassignment Boolean  @default(false)
+  updatedAt                 DateTime @updatedAt
+}
+

@@ -1,0 +1,48 @@
+{
+  "name": "hb-crm",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "start": "npm run start --workspace=backend",
+    "start:backend": "npm run start --workspace=backend",
+    "start:frontend": "npm run preview --workspace=frontend",
+    "build": "npm run build --workspaces",
+    "build:backend": "npm run build --workspace=backend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "lint": "npm run lint --workspaces",
+    "lint:backend": "npm run lint --workspace=backend",
+    "lint:frontend": "npm run lint --workspace=frontend",
+    "typecheck": "npm run typecheck --workspaces",
+    "typecheck:backend": "npm run typecheck --workspace=backend",
+    "typecheck:frontend": "npm run typecheck --workspace=frontend",
+    "seed": "npm run prisma:seed --workspace=backend",
+    "seed:50": "npm run seed:50 --workspace=backend",
+    "test:enquiry": "npm run test:enquiry --workspace=backend",
+    "test:append-only": "npm run test:append-only --workspace=backend",
+    "test:followup": "npm run test:followup --workspace=backend",
+    "test:modules": "npm run test:modules --workspace=backend",
+    "test:attachments": "npm run test:attachments --workspace=backend",
+    "test:dashboard": "npm run test:dashboard --workspace=backend",
+    "test:users": "npm run test:users --workspace=backend",
+    "test:profile": "npm run test:profile --workspace=backend",
+    "test:notifications": "npm run test:notifications --workspace=backend",
+    "test:import": "npm run test:import --workspace=backend",
+    "test:50": "npm run test:50 --workspace=backend",
+    "test:security": "npm run test:security --workspace=backend",
+    "test": "npm test --workspace=backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "overrides": {
+    "qs": "^6.14.0",
+    "deepmerge-ts": "^8.0.0"
+  }
+}
