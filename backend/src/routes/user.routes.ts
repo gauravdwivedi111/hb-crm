@@ -31,3 +31,9 @@ userRouter.get('/', requireRole(Role.ADMIN), (req, res, next) => {
 userRouter.patch('/:id/status', requireRole(Role.ADMIN), (req, res, next) => {
   userController.updateUserStatus(req, res, next);
 });
+
+// DELETE /users/:id - Permanently delete a user account (Admin-only)
+userRouter.delete('/:id', requireRole(Role.ADMIN), (req, res, next) => {
+  userController.deleteUser(req, res, next);
+});
+

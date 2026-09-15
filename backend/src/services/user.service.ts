@@ -221,6 +221,108 @@ export class UserService {
   }
 
   /**
+   * Delete a user account permanently (Admin-only).
+   * Prevents self-deletion by the requesting administrator.
+   * Checks for immutable historical records (created enquiries, activities, quotations, status changes, audit logs).
+   * Cleans up tokens, notifications, resets subordinate supervisors, unassigns enquiries/customers, and deletes the user.
+   */
+  public async deleteUser(
+    adminUserId: string,
+    targetUserId: string,
+  ): Promise<{ id: string; name: string }> {
+    if (adminUserId === targetUserId) {
+      throw new BadRequestError('You cannot delete your own administrative account.');
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        _count: {
+          select: {
+            createdEnquiries: true,
+            activities: true,
+            statusChanges: true,
+            quotations: true,
+            attachments: true,
+            auditLogs: true,
+          },
+        },
+      },
+    });
+
+    if (!existingUser) {
+      throw new NotFoundError('User not found.');
+    }
+
+    // Check for immutable historical records
+    const counts = existingUser._count;
+    const historicalTotal =
+      counts.createdEnquiries +
+      counts.activities +
+      counts.statusChanges +
+      counts.quotations +
+      counts.attachments +
+      counts.auditLogs;
+
+    if (historicalTotal > 0) {
+      throw new BadRequestError(
+        `Cannot delete user "${existingUser.name}" because they have ${historicalTotal} historical business/audit record(s) (enquiries, activities, quotations, or status logs). To revoke access while preserving company audit history, please Deactivate the account instead.`,
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Detach subordinates (set supervisorId = null)
+      await tx.user.updateMany({
+        where: { supervisorId: targetUserId },
+        data: { supervisorId: null },
+      });
+
+      // 2. Unassign any enquiries assigned to this user
+      await tx.enquiry.updateMany({
+        where: { assignedToId: targetUserId },
+        data: { assignedToId: null },
+      });
+
+      // 3. Unassign any customers assigned to this user
+      await tx.customer.updateMany({
+        where: { assignedToId: targetUserId },
+        data: { assignedToId: null },
+      });
+
+      // 4. Delete any followups assigned to this user
+      await tx.followup.deleteMany({
+        where: { assignedToId: targetUserId },
+      });
+
+      // 5. Delete tokens and notifications
+      await tx.refreshToken.deleteMany({
+        where: { userId: targetUserId },
+      });
+
+      await tx.passwordResetToken.deleteMany({
+        where: { userId: targetUserId },
+      });
+
+      await tx.notification.deleteMany({
+        where: { userId: targetUserId },
+      });
+
+      // 6. Delete user record
+      await tx.user.delete({
+        where: { id: targetUserId },
+      });
+    });
+
+    // Invalidate session cache
+    markUserDeactivated(targetUserId);
+
+    return { id: existingUser.id, name: existingUser.name };
+  }
+
+  /**
    * GET /users/:id/profile
    * Manager+ only: retrieves target subordinate's profile and aggregated KPI stats.
    * Enforces anti-enumeration: returns 404 (NotFoundError) if target user is not in caller's hierarchy.

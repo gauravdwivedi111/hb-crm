@@ -98,6 +98,40 @@ export class UserController {
   }
 
   /**
+   * DELETE /users/:id
+   * Admin-only permanent deletion of user account.
+   */
+  public async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError();
+      }
+
+      const rawId = req.params.id;
+      const targetUserId = Array.isArray(rawId) ? rawId[0] : rawId;
+      if (!targetUserId) {
+        throw new z.ZodError([
+          {
+            code: z.ZodIssueCode.custom,
+            message: 'User ID is required in URL path',
+            path: ['id'],
+          },
+        ]);
+      }
+
+      const result = await userService.deleteUser(req.user.userId, targetUserId);
+
+      res.status(200).json({
+        status: 'success',
+        message: `User "${result.name}" was permanently deleted successfully`,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * GET /users/:id/profile
    * Manager+ subordinate profile & KPI aggregation.
    */

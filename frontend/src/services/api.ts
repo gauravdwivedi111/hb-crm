@@ -476,6 +476,12 @@ export const api = {
       });
     },
 
+    async delete(id: string): Promise<{ id: string; name: string }> {
+      return request<{ id: string; name: string }>(`/users/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+    },
+
     async getProfile(userId: string): Promise<UserProfileData> {
       return request<UserProfileData>(`/users/${encodeURIComponent(userId)}/profile`);
     },
