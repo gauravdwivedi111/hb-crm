@@ -28,8 +28,9 @@ if (isProduction) {
   } else {
     console.info('[INFO] Attachments feature is disabled (ENABLE_ATTACHMENTS !== true). Skipping S3/R2 credential validation.');
   }
-  if (!process.env.RESEND_API_KEY) missingProdKeys.push('RESEND_API_KEY');
-  if (!process.env.EMAIL_FROM_ADDRESS) missingProdKeys.push('EMAIL_FROM_ADDRESS');
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[WARN] RESEND_API_KEY is not configured in production. Password reset and notification emails will be disabled.');
+  }
 
   if (missingProdKeys.length > 0) {
     console.error(`[FATAL] Missing mandatory production environment variables: ${missingProdKeys.join(', ')}. Exiting.`);
@@ -60,6 +61,6 @@ export const config = {
   cookieSameSite: ((process.env.COOKIE_SAME_SITE as 'none' | 'lax' | 'strict') || (isProduction ? 'none' : 'lax')),
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
-    fromAddress: process.env.EMAIL_FROM_ADDRESS || 'HB CRM <notifications@hbcrm.local>',
+    fromAddress: process.env.EMAIL_FROM_ADDRESS || 'HB CRM <onboarding@resend.dev>',
   },
 } as const;
