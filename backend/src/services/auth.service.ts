@@ -304,6 +304,10 @@ export class AuthService {
       where: { email: normalizedEmail },
     });
 
+    console.info(
+      `[Auth] Password reset requested for "${normalizedEmail}". Found active user: ${Boolean(user && user.isActive)}`,
+    );
+
     if (user && user.isActive) {
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = hashToken(rawToken);

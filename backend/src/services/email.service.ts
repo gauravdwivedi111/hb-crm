@@ -29,6 +29,10 @@ export class EmailService {
       return { success: false, error: 'Invalid recipient email' };
     }
 
+    console.info(
+      `[Email] Dispatch attempt to "${trimmedTo}". RESEND_API_KEY configured: ${Boolean(config.email.resendApiKey)}, fromAddress: "${config.email.fromAddress}"`,
+    );
+
     // Development fallback when no Resend API key is configured
     if (!config.email.resendApiKey) {
       if (config.isProduction) {
