@@ -32,6 +32,11 @@ userRouter.patch('/:id/status', requireRole(Role.ADMIN), (req, res, next) => {
   userController.updateUserStatus(req, res, next);
 });
 
+// PATCH /users/:id/password - Set/update a user account password (Admin-only)
+userRouter.patch('/:id/password', requireRole(Role.ADMIN), (req, res, next) => {
+  userController.updateUserPassword(req, res, next);
+});
+
 // DELETE /users/:id - Permanently delete a user account (Admin-only)
 userRouter.delete('/:id', requireRole(Role.ADMIN), (req, res, next) => {
   userController.deleteUser(req, res, next);

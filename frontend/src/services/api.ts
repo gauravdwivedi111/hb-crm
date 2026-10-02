@@ -482,6 +482,13 @@ export const api = {
       });
     },
 
+    async updatePassword(id: string, newPassword: string): Promise<{ id: string; name: string }> {
+      return request<{ id: string; name: string }>(`/users/${encodeURIComponent(id)}/password`, {
+        method: 'PATCH',
+        body: JSON.stringify({ newPassword }),
+      });
+    },
+
     async getProfile(userId: string): Promise<UserProfileData> {
       return request<UserProfileData>(`/users/${encodeURIComponent(userId)}/profile`);
     },

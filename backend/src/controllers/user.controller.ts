@@ -16,6 +16,10 @@ export const updateUserStatusSchema = z.object({
   isActive: z.boolean(),
 });
 
+export const updateUserPasswordSchema = z.object({
+  newPassword: z.string().min(8, 'Password must be at least 8 characters long'),
+});
+
 export class UserController {
   /**
    * GET /users/employees
@@ -125,6 +129,45 @@ export class UserController {
         status: 'success',
         message: `User "${result.name}" was permanently deleted successfully`,
         data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PATCH /users/:id/password
+   * Admin-only password update for a user.
+   */
+  public async updateUserPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError();
+      }
+
+      const rawId = req.params.id;
+      const targetUserId = Array.isArray(rawId) ? rawId[0] : rawId;
+      if (!targetUserId) {
+        throw new z.ZodError([
+          {
+            code: z.ZodIssueCode.custom,
+            message: 'User ID is required in URL path',
+            path: ['id'],
+          },
+        ]);
+      }
+
+      const { newPassword } = updateUserPasswordSchema.parse(req.body);
+      const updatedUser = await userService.updateUserPassword(
+        req.user.userId,
+        targetUserId,
+        newPassword,
+      );
+
+      res.status(200).json({
+        status: 'success',
+        message: `Password for user "${updatedUser.name}" updated successfully`,
+        data: updatedUser,
       });
     } catch (error) {
       next(error);

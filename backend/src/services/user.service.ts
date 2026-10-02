@@ -5,6 +5,7 @@ import {
   FollowupStatus,
   QuotationStatus,
 } from '@prisma/client';
+import argon2 from 'argon2';
 import { prisma } from '../prisma/client.js';
 import { BadRequestError, NotFoundError } from '../utils/errors.js';
 import {
@@ -320,6 +321,54 @@ export class UserService {
     markUserDeactivated(targetUserId);
 
     return { id: existingUser.id, name: existingUser.name };
+  }
+
+  /**
+   * Update a user's password directly (Admin-only).
+   * Hashes the password with argon2id, resets failed attempts and lockouts,
+   * and revokes any active refresh tokens to force re-login with the new password.
+   */
+  public async updateUserPassword(
+    _adminUserId: string,
+    targetUserId: string,
+    newPassword: string,
+  ): Promise<{ id: string; name: string; email: string }> {
+    if (!newPassword || newPassword.trim().length < 8) {
+      throw new BadRequestError('Password must be at least 8 characters long.');
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!existingUser) {
+      throw new NotFoundError('User not found.');
+    }
+
+    const passwordHash = await argon2.hash(newPassword, {
+      type: argon2.argon2id,
+    });
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update password and clear lockout
+      await tx.user.update({
+        where: { id: targetUserId },
+        data: {
+          passwordHash,
+          failedLoginCount: 0,
+          lockedUntil: null,
+        },
+      });
+
+      // 2. Revoke all refresh tokens to terminate stale sessions
+      await tx.refreshToken.updateMany({
+        where: { userId: targetUserId, revoked: false },
+        data: { revoked: true },
+      });
+    });
+
+    return existingUser;
   }
 
   /**
