@@ -40,6 +40,9 @@ import {
   X,
   Plus,
   UserCheck,
+  Download,
+  Printer,
+  Loader2,
 } from 'lucide-react';
 
 const MANAGER_ROLES: Role[] = ['ADMIN', 'DGM', 'AGM', 'MANAGER'];
@@ -338,6 +341,27 @@ export const EnquiryDetailPage: React.FC = () => {
     }
   };
 
+  // 7. Complete Enquiry Dossier Export & Print Handlers
+  const [isExportingCsv, setIsExportingCsv] = useState<boolean>(false);
+
+  const handleExportCsv = async (): Promise<void> => {
+    if (!id) return;
+    setIsExportingCsv(true);
+    try {
+      await api.enquiries.exportSingleCsv(id);
+      setActionSuccess('Complete enquiry dossier exported successfully to CSV.');
+      setTimeout(() => setActionSuccess(null), 4000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to export enquiry dossier.');
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+
+  const handlePrintDossier = (): void => {
+    window.print();
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6 animate-pulse">
@@ -376,8 +400,8 @@ export const EnquiryDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Navigation Breadcrumb */}
-      <div className="flex items-center justify-between">
+      {/* Navigation Breadcrumb & Action Toolbar */}
+      <div className="flex items-center justify-between no-print">
         <button
           onClick={() => navigate('/enquiries')}
           className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
@@ -386,13 +410,54 @@ export const EnquiryDetailPage: React.FC = () => {
           <span>Back to Enquiry Pipeline</span>
         </button>
 
-        <button
-          onClick={() => void fetchEnquiry()}
-          className="p-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600 transition-colors shadow-sm cursor-pointer"
-          title="Refresh Details"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-2.5">
+          {/* Export Single Dossier CSV Button */}
+          <button
+            onClick={() => void handleExportCsv()}
+            disabled={isExportingCsv}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+            title="Download complete structured enquiry dossier as CSV"
+          >
+            {isExportingCsv ? (
+              <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5 text-emerald-600" />
+            )}
+            <span>{isExportingCsv ? 'Exporting...' : 'Export Dossier (CSV)'}</span>
+          </button>
+
+          {/* Print / Save PDF Dossier Button */}
+          <button
+            onClick={handlePrintDossier}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            title="Print or Save as PDF Dossier"
+          >
+            <Printer className="w-3.5 h-3.5 text-brand-600" />
+            <span>Print / PDF</span>
+          </button>
+
+          <button
+            onClick={() => void fetchEnquiry()}
+            className="p-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600 transition-colors shadow-sm cursor-pointer"
+            title="Refresh Details"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Official Printable Header (Visible only when Printing to Paper/PDF) */}
+      <div className="hidden print:block mb-6 pb-4 border-b-2 border-slate-900">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">HB CRM Enterprise — Official Enquiry Dossier</h1>
+            <p className="text-xs text-slate-500 font-medium">Confidential Commercial Document</p>
+          </div>
+          <div className="text-right text-xs text-slate-600">
+            <p className="font-semibold">Export Date: {new Date().toLocaleDateString('en-IN', { dateStyle: 'long' })}</p>
+            <p className="font-mono text-[10px] text-slate-400">Ref: {enquiry.id}</p>
+          </div>
+        </div>
       </div>
 
       {/* Success Notification Banner */}
@@ -482,8 +547,8 @@ export const EnquiryDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Quick Action Workflow Toolbar ("Call → Add Remark → Change Status → Schedule Follow-up") */}
-        <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80">
+        {/* Quick Action Workflow Toolbar ("Call → Add Remark → Change Status → Schedule Follow-up → Export Dossier") */}
+        <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 no-print">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2.5">
             Quick Actions Workflow
           </span>
@@ -536,6 +601,20 @@ export const EnquiryDetailPage: React.FC = () => {
             >
               <Calendar className="w-3.5 h-3.5 text-blue-600" />
               <span>Schedule Follow-up</span>
+            </button>
+
+            {/* 5. Export Dossier CSV */}
+            <button
+              onClick={() => void handleExportCsv()}
+              disabled={isExportingCsv}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-700 text-xs font-semibold text-slate-700 transition-all shadow-xs cursor-pointer disabled:opacity-60"
+            >
+              {isExportingCsv ? (
+                <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5 text-emerald-600" />
+              )}
+              <span>Export Dossier (CSV)</span>
             </button>
           </div>
 

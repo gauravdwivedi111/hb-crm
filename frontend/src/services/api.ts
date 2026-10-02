@@ -281,6 +281,97 @@ export const api = {
       });
       return res.enquiry;
     },
+
+    async exportCsv(params: Omit<EnquiriesQueryParams, 'page' | 'limit'> = {}): Promise<void> {
+      const searchParams = new URLSearchParams();
+      if (params.status) searchParams.set('status', params.status);
+      if (params.priority) searchParams.set('priority', params.priority);
+      if (params.assignedToId) searchParams.set('assignedToId', params.assignedToId);
+      if (params.search && params.search.trim()) searchParams.set('search', params.search.trim());
+
+      const queryStr = searchParams.toString();
+      const endpoint = queryStr ? `/enquiries/export?${queryStr}` : '/enquiries/export';
+
+      const headers: Record<string, string> = {};
+      if (inMemoryAccessToken) {
+        headers['Authorization'] = `Bearer ${inMemoryAccessToken}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'GET',
+        headers,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        let errMsg = `Export failed with status ${response.status}`;
+        try {
+          const errJson = await response.json();
+          if (errJson.message) errMsg = errJson.message;
+        } catch {
+          // ignore
+        }
+        throw new Error(errMsg);
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get('content-disposition');
+      let filename = `hb-crm-enquiries-${new Date().toISOString().slice(0, 10)}.csv`;
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    },
+
+    async exportSingleCsv(id: string): Promise<void> {
+      const headers: Record<string, string> = {};
+      if (inMemoryAccessToken) {
+        headers['Authorization'] = `Bearer ${inMemoryAccessToken}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/enquiries/${encodeURIComponent(id)}/export`, {
+        method: 'GET',
+        headers,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        let errMsg = `Export failed with status ${response.status}`;
+        try {
+          const errJson = await response.json();
+          if (errJson.message) errMsg = errJson.message;
+        } catch {
+          // ignore
+        }
+        throw new Error(errMsg);
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get('content-disposition');
+      let filename = `enquiry-${id.slice(-6)}.csv`;
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    },
   },
 
   // Follow-up methods

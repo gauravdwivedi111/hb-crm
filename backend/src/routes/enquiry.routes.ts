@@ -18,9 +18,19 @@ enquiryRouter.get('/', (req, res, next) => {
   enquiryController.list(req, res, next);
 });
 
+// 2b. GET /enquiries/export - Export enquiries as CSV matching filters and permissions
+enquiryRouter.get('/export', (req, res, next) => {
+  enquiryController.exportEnquiries(req, res, next);
+});
+
 // 3. GET /enquiries/:id - Single enquiry with 404 anti-enumeration protection
 enquiryRouter.get('/:id', (req, res, next) => {
   enquiryController.getById(req, res, next);
+});
+
+// 3b. GET /enquiries/:id/export - Export single enquiry full dossier as CSV
+enquiryRouter.get('/:id/export', (req, res, next) => {
+  enquiryController.exportSingleEnquiry(req, res, next);
 });
 
 // 4. PATCH /enquiries/:id - General details update (disallows status & assignee)

@@ -643,6 +643,37 @@ async function run() {
   assert('Restore Employee password back to standard Password123!', restoreRes.ok);
 
   // -------------------------------------------------------------
+  // 12. Testing Complete Enquiry Export (Bulk & Single Dossier)
+  // -------------------------------------------------------------
+  console.log('\n--- 12. Testing Complete Enquiry Export (Bulk & Single Dossier) ---');
+
+  const bulkExportRes = await request('/enquiries/export', { method: 'GET' }, adminToken);
+  const bulkCsv = bulkExportRes.data?.raw || '';
+  assert(
+    'Bulk Enquiry Export CSV (GET /enquiries/export)',
+    bulkExportRes.ok &&
+      bulkCsv.includes('Enquiry ID') &&
+      bulkCsv.includes('Expected Deal Value (INR)'),
+  );
+
+  const filterExportRes = await request('/enquiries/export?status=CONVERTED', { method: 'GET' }, adminToken);
+  const filterCsv = filterExportRes.data?.raw || '';
+  assert(
+    'Filtered Enquiry Export CSV (GET /enquiries/export?status=CONVERTED)',
+    filterExportRes.ok &&
+      filterCsv.includes('CONVERTED'),
+  );
+
+  const singleDossierRes = await request(`/enquiries/${createdEnquiries[0].id}/export`, { method: 'GET' }, adminToken);
+  const dossierCsv = singleDossierRes.data?.raw || '';
+  assert(
+    'Single Enquiry Dossier Export CSV (GET /enquiries/:id/export)',
+    singleDossierRes.ok &&
+      dossierCsv.includes('=== 1. CUSTOMER & ACCOUNT DETAILS ===') &&
+      dossierCsv.includes('=== 3. PIPELINE STAGE TRANSITION HISTORY ==='),
+  );
+
+  // -------------------------------------------------------------
   // Final Results
   // -------------------------------------------------------------
   console.log('\n================================================================');

@@ -7,3 +7,23 @@
   line-height: 1.5;
   font-weight: 400;
 }
+
+@media print {
+  nav,
+  aside,
+  header,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+  }
+
+  .print-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

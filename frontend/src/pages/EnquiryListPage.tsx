@@ -29,6 +29,10 @@ import {
   AlertCircle,
   FileText,
   UploadCloud,
+  Download,
+  Loader2,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 
 const MANAGER_ROLES: Role[] = ['ADMIN', 'DGM', 'AGM', 'MANAGER'];
@@ -59,6 +63,44 @@ export const EnquiryListPage: React.FC = () => {
 
   // Team members for Manager+ filter & assignment
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
+
+  // Export state
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
+  const [exportBanner, setExportBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleExport = async (exportAll: boolean = false): Promise<void> => {
+    setIsExportMenuOpen(false);
+    setIsExporting(true);
+    setExportBanner(null);
+    try {
+      const filterParams = exportAll
+        ? {}
+        : {
+            status: selectedStatuses.length === 1 ? selectedStatuses[0] : undefined,
+            priority: selectedPriority || undefined,
+            assignedToId: selectedAssignee || undefined,
+            search: debouncedSearch || undefined,
+          };
+
+      await api.enquiries.exportCsv(filterParams);
+      setExportBanner({
+        type: 'success',
+        message: exportAll
+          ? 'Complete enquiry database exported successfully to CSV.'
+          : 'Filtered enquiries exported successfully to CSV.',
+      });
+      setTimeout(() => setExportBanner(null), 4000);
+    } catch (err) {
+      setExportBanner({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to export enquiries.',
+      });
+      setTimeout(() => setExportBanner(null), 5000);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // New Enquiry Modal State
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -263,6 +305,61 @@ export const EnquiryListPage: React.FC = () => {
           >
             <RefreshCw className="w-4 h-4" />
           </button>
+
+          {/* Export CSV Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                if (hasActiveFilters) {
+                  setIsExportMenuOpen(!isExportMenuOpen);
+                } else {
+                  void handleExport(true);
+                }
+              }}
+              disabled={isExporting}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+              title="Export complete enquiries to CSV"
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 text-emerald-600" />
+              )}
+              <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
+              {hasActiveFilters && <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+            </button>
+
+            {isExportMenuOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-30">
+                <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Export Options
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleExport(false)}
+                  className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex flex-col">
+                    <span className="font-medium text-slate-900">Export Current View</span>
+                    <span className="text-xs text-slate-500">Filtered ({meta.total} enquiries)</span>
+                  </div>
+                  <Download className="w-4 h-4 text-slate-400" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleExport(true)}
+                  className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer border-t border-slate-100"
+                >
+                  <div className="flex flex-col">
+                    <span className="font-medium text-slate-900">Export All Enquiries</span>
+                    <span className="text-xs text-slate-500">Entire accessible database</span>
+                  </div>
+                  <Download className="w-4 h-4 text-emerald-600" />
+                </button>
+              </div>
+            )}
+          </div>
+
           {isManagerPlus && (
             <button
               onClick={() => navigate('/import')}
@@ -273,6 +370,7 @@ export const EnquiryListPage: React.FC = () => {
               <span>Import CSV</span>
             </button>
           )}
+
           <button
             onClick={() => {
               setCreateError(null);
@@ -285,6 +383,33 @@ export const EnquiryListPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Export Notification Banner */}
+      {exportBanner && (
+        <div
+          className={`p-3.5 rounded-xl text-sm font-medium flex items-center justify-between shadow-xs transition-all ${
+            exportBanner.type === 'success'
+              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border border-rose-200 text-rose-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {exportBanner.type === 'success' ? (
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span>{exportBanner.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExportBanner(null)}
+            className="text-slate-400 hover:text-slate-600"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Filter Toolbar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">

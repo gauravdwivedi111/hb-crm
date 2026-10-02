@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { EnquiryStatus, Priority } from '@prisma/client';
 import { enquiryService } from '../services/enquiry.service.js';
+import { exportService } from '../services/export.service.js';
 import { UnauthorizedError, BadRequestError } from '../utils/errors.js';
 
 export const inlineCustomerSchema = z.object({
@@ -36,6 +37,13 @@ export const createEnquirySchema = z
 export const listEnquiriesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
+  status: z.nativeEnum(EnquiryStatus).optional(),
+  priority: z.nativeEnum(Priority).optional(),
+  assignedToId: z.string().trim().optional(),
+  search: z.string().trim().optional(),
+});
+
+export const exportEnquiriesQuerySchema = z.object({
   status: z.nativeEnum(EnquiryStatus).optional(),
   priority: z.nativeEnum(Priority).optional(),
   assignedToId: z.string().trim().optional(),
@@ -236,6 +244,48 @@ export class EnquiryController {
         message: 'Enquiry assigned successfully',
         data: { enquiry: updated },
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /enquiries/export
+   * Complete CSV export of enquiries scoped by user permissions and filters.
+   */
+  public async exportEnquiries(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError();
+      }
+
+      const query = exportEnquiriesQuerySchema.parse(req.query);
+      const result = await exportService.exportEnquiriesCsv(req.user, query);
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+      res.status(200).send(result.csv);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /enquiries/:id/export
+   * Complete dossier CSV export for an individual enquiry.
+   */
+  public async exportSingleEnquiry(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError();
+      }
+
+      const id = this.getId(req);
+      const result = await exportService.exportSingleEnquiryDossierCsv(req.user, id);
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+      res.status(200).send(result.csv);
     } catch (error) {
       next(error);
     }
