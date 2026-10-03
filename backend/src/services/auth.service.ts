@@ -293,12 +293,12 @@ export class AuthService {
   }
 
   /**
-   * Request password reset link (anti-enumeration protected).
+   * Request password reset OTP & link (anti-enumeration protected).
    */
-  public async forgotPassword(email: string): Promise<{ message: string }> {
+  public async forgotPassword(email: string): Promise<{ message: string; debugOtp?: string }> {
     const normalizedEmail = email.trim().toLowerCase();
     const genericSuccessMessage =
-      'If an account exists with this email, a reset link has been sent.';
+      'If an account exists with this email, a 6-digit verification code has been sent.';
 
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -308,44 +308,175 @@ export class AuthService {
       `[Auth] Password reset requested for "${normalizedEmail}". Found active user: ${Boolean(user && user.isActive)}`,
     );
 
-    if (user && user.isActive) {
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = hashToken(rawToken);
-      const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+    let generatedOtp: string | undefined;
 
-      await prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash,
-          expiresAt,
-        },
+    if (user && user.isActive) {
+      // Generate cryptographically secure 6-digit numeric OTP
+      const otp = crypto.randomInt(100000, 1000000).toString();
+      generatedOtp = otp;
+
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const otpTokenHash = hashToken(`otp:${user.id}:${otp}`);
+      const linkTokenHash = hashToken(rawToken);
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+      // Invalidate any existing unused reset tokens for this user
+      await prisma.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() },
       });
 
-      const resetUrl = `${config.frontendUrl}/reset-password?token=${rawToken}`;
-      const emailSubject = '[HB CRM] Password Reset Request';
+      // Store both OTP token hash and direct link token hash
+      await prisma.passwordResetToken.createMany({
+        data: [
+          {
+            userId: user.id,
+            tokenHash: otpTokenHash,
+            expiresAt,
+          },
+          {
+            userId: user.id,
+            tokenHash: linkTokenHash,
+            expiresAt,
+          },
+        ],
+      });
+
+      console.info(
+        `[Auth OTP] >>> Generated 6-digit OTP for ${normalizedEmail}: ${otp} (Expires at ${expiresAt.toISOString()}) <<<`,
+      );
+
+      const resetUrl = `${config.frontendUrl}/reset-password?email=${encodeURIComponent(user.email)}&otp=${otp}&token=${rawToken}`;
+      const emailSubject = `[HB CRM] Your Password Reset OTP: ${otp}`;
       const emailBody =
         `Hello ${user.name},\n\n` +
         `We received a request to reset the password for your HB CRM account.\n\n` +
-        `To reset your password, please click the link below (or copy and paste it into your browser):\n` +
+        `Your 6-digit One-Time Password (OTP) is:\n\n` +
+        `   ================================\n` +
+        `             ${otp}\n` +
+        `   ================================\n\n` +
+        `This verification code will expire in 15 minutes.\n\n` +
+        `Alternatively, you can open this link directly in your browser:\n` +
         `${resetUrl}\n\n` +
-        `This link will expire in 30 minutes.\n\n` +
-        `If you did not request a password reset, please ignore this email — your password will remain unchanged.\n\n` +
+        `If you did not request a password reset, please disregard this email — your account remains secure.\n\n` +
         `Best regards,\nHB CRM Security Team`;
 
-      await emailService.sendEmail(user.email, emailSubject, emailBody);
+      const emailHtml = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;">
+          <div style="margin-bottom: 24px; text-align: center;">
+            <div style="display: inline-block; background: #059669; color: #ffffff; font-weight: bold; font-size: 20px; width: 48px; height: 48px; line-height: 48px; border-radius: 12px; text-align: center;">HB</div>
+            <h2 style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 12px 0 4px;">Password Reset Code</h2>
+            <p style="font-size: 13px; color: #64748b; margin: 0;">HB CRM Lead & Sales Management</p>
+          </div>
+          <p style="font-size: 14px; color: #334155; line-height: 1.6;">Hello <strong>${user.name}</strong>,</p>
+          <p style="font-size: 14px; color: #334155; line-height: 1.6;">Enter the following 6-digit One-Time Password (OTP) in the CRM password reset screen:</p>
+          <div style="text-align: center; margin: 28px 0;">
+            <div style="display: inline-block; background: #f0fdf4; border: 2px dashed #059669; border-radius: 14px; padding: 16px 36px; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #059669; font-family: monospace;">
+              ${otp}
+            </div>
+            <p style="font-size: 12px; color: #64748b; margin-top: 10px;">Expires in 15 minutes • Single use only</p>
+          </div>
+          <div style="text-align: center; margin-top: 24px;">
+            <a href="${resetUrl}" style="display: inline-block; background: #059669; color: #ffffff; font-size: 13px; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 10px;">Reset Password Directly</a>
+          </div>
+          <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 32px 0 16px;" />
+          <p style="font-size: 11px; color: #94a3b8; text-align: center; margin: 0;">If you didn't request this code, please ignore this email. Your password will remain unchanged.</p>
+        </div>
+      `;
+
+      await emailService.sendEmail(user.email, emailSubject, emailBody, emailHtml);
     } else {
       // Anti-enumeration timing equalization:
-      // Perform dummy crypto generation/hash and sleep to match valid lookup latency
       const dummyToken = crypto.randomBytes(32).toString('hex');
       hashToken(dummyToken);
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
-    return { message: genericSuccessMessage };
+    return {
+      message: genericSuccessMessage,
+      ...(config.isProduction ? {} : { debugOtp: generatedOtp }),
+    };
   }
 
   /**
-   * Reset user password using presented reset token.
+   * Reset user password using 6-digit OTP code and user email.
+   */
+  public async resetPasswordWithOtp(
+    email: string,
+    otp: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const cleanOtp = otp.trim();
+
+    if (!cleanOtp || !/^\d{6}$/.test(cleanOtp)) {
+      throw new BadRequestError('Invalid OTP code. Please enter the 6-digit code sent to your email.');
+    }
+
+    if (!newPassword || newPassword.length < 10) {
+      throw new BadRequestError('Password must be at least 10 characters long');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user || !user.isActive) {
+      throw new BadRequestError('Invalid or expired OTP code. Please request a new code.');
+    }
+
+    const otpTokenHash = hashToken(`otp:${user.id}:${cleanOtp}`);
+
+    const resetRecord = await prisma.passwordResetToken.findFirst({
+      where: {
+        userId: user.id,
+        tokenHash: otpTokenHash,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!resetRecord) {
+      throw new BadRequestError('Invalid or expired OTP code. Please verify the code or request a new one.');
+    }
+
+    const passwordHash = await argon2.hash(newPassword, {
+      type: argon2.argon2id,
+    });
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update user password and clear lockout state
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          failedLoginCount: 0,
+          lockedUntil: null,
+        },
+      });
+
+      // 2. Mark this reset token and any remaining tokens for this user as used
+      await tx.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+
+      // 3. Revoke all existing refresh tokens for this user across all sessions
+      await tx.refreshToken.updateMany({
+        where: { userId: user.id, revoked: false },
+        data: { revoked: true },
+      });
+    });
+
+    console.info(`[Auth OTP] Successfully reset password for user "${normalizedEmail}" via OTP.`);
+
+    return {
+      message: 'Password has been reset successfully. You can now log in with your new password.',
+    };
+  }
+
+  /**
+   * Reset user password using presented reset token (or OTP token).
    */
   public async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
     const trimmedToken = token.trim();

@@ -22,8 +22,16 @@ export const forgotPasswordSchema = z.object({
   email: z.string().trim().email('Invalid email address'),
 });
 
+export const resetPasswordWithOtpSchema = z.object({
+  email: z.string().trim().email('Invalid email address'),
+  otp: z.string().trim().regex(/^\d{6}$/, 'OTP must be a 6-digit code'),
+  newPassword: z.string().min(10, 'Password must be at least 10 characters long'),
+});
+
 export const resetPasswordSchema = z.object({
-  token: z.string().trim().min(1, 'Token is required'),
+  token: z.string().trim().optional(),
+  email: z.string().trim().email().optional(),
+  otp: z.string().trim().optional(),
   newPassword: z.string().min(10, 'Password must be at least 10 characters long'),
 });
 
@@ -143,12 +151,61 @@ export class AuthController {
   }
 
   /**
+   * POST /auth/reset-password-otp
+   * Reset user password using 6-digit OTP received via email.
+   */
+  public async resetPasswordWithOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const validatedInput = resetPasswordWithOtpSchema.parse(req.body);
+      const result = await authService.resetPasswordWithOtp(
+        validatedInput.email,
+        validatedInput.otp,
+        validatedInput.newPassword,
+      );
+
+      res.status(200).json({
+        status: 'success',
+        message: result.message,
+        data: { message: result.message },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /auth/reset-password
-   * Reset user password using token.
+   * Reset user password using token or OTP.
    */
   public async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedInput = resetPasswordSchema.parse(req.body);
+
+      // If email and OTP are provided, handle as OTP reset
+      if (validatedInput.email && validatedInput.otp) {
+        const result = await authService.resetPasswordWithOtp(
+          validatedInput.email,
+          validatedInput.otp,
+          validatedInput.newPassword,
+        );
+
+        res.status(200).json({
+          status: 'success',
+          message: result.message,
+          data: { message: result.message },
+        });
+        return;
+      }
+
+      // Otherwise handle as token link reset
+      if (!validatedInput.token) {
+        res.status(400).json({
+          status: 'error',
+          message: 'Reset token or email & OTP are required to reset password.',
+        });
+        return;
+      }
+
       const result = await authService.resetPassword(
         validatedInput.token,
         validatedInput.newPassword,

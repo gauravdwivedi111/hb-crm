@@ -211,6 +211,17 @@ export const api = {
         body: JSON.stringify({ token, newPassword }),
       });
     },
+
+    async resetPasswordWithOtp(
+      email: string,
+      otp: string,
+      newPassword: string,
+    ): Promise<{ message: string }> {
+      return request<{ message: string }>('/auth/reset-password-otp', {
+        method: 'POST',
+        body: JSON.stringify({ email, otp, newPassword }),
+      });
+    },
   },
 
   // Dashboard methods

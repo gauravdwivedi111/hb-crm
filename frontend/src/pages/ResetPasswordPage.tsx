@@ -8,6 +8,8 @@ export const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
 
   const token = searchParams.get('token') || '';
+  const email = (searchParams.get('email') || '').trim();
+  const otp = (searchParams.get('otp') || '').trim();
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,16 +19,18 @@ export const ResetPasswordPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
+  const hasValidAuthMethod = Boolean(token.trim() || (email.trim() && otp.trim()));
+
   useEffect(() => {
-    if (!token.trim()) {
-      setError('Missing password reset token. Please request a new reset link.');
+    if (!hasValidAuthMethod) {
+      setError('Missing password reset credentials. Please request a new OTP code or reset link.');
     }
-  }, [token]);
+  }, [hasValidAuthMethod]);
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    if (!token.trim()) {
-      setError('Missing or invalid reset token. Please request a new reset link.');
+    if (!hasValidAuthMethod) {
+      setError('Missing or invalid reset credentials. Please request a new OTP code or reset link.');
       return;
     }
 
@@ -44,7 +48,12 @@ export const ResetPasswordPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      await api.auth.resetPassword(token.trim(), newPassword);
+      if (email.trim() && otp.trim()) {
+        await api.auth.resetPasswordWithOtp(email.trim(), otp.trim(), newPassword);
+      } else {
+        await api.auth.resetPassword(token.trim(), newPassword);
+      }
+
       setIsSuccess(true);
       setTimeout(() => {
         navigate('/login', {
@@ -58,7 +67,7 @@ export const ResetPasswordPage: React.FC = () => {
       setError(
         err instanceof Error
           ? err.message
-          : 'Invalid or expired password reset link. Please request a new one.',
+          : 'Invalid or expired password reset link/OTP. Please request a new one.',
       );
     } finally {
       setIsSubmitting(false);
@@ -101,14 +110,14 @@ export const ResetPasswordPage: React.FC = () => {
                 </Link>
               </div>
             </div>
-          ) : !token.trim() ? (
+          ) : !hasValidAuthMethod ? (
             <div className="text-center space-y-4 py-4">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
                 <ShieldAlert className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-slate-900">Invalid Reset Link</h3>
+              <h3 className="text-base font-bold text-slate-900">Invalid or Missing Credentials</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                This reset link is missing its authentication token or has already expired.
+                This reset link is missing its authentication token or OTP code, or it has already expired.
               </p>
               <div className="pt-2">
                 <Link

@@ -42,9 +42,14 @@ authRouter.post(
   },
 );
 
-// Reset password using token
+// Reset password using token or OTP (compatible with both)
 authRouter.post('/reset-password', authRateLimiter, (req, res, next) => {
   authController.resetPassword(req, res, next);
+});
+
+// Reset password specifically using 6-digit OTP code
+authRouter.post('/reset-password-otp', authRateLimiter, (req, res, next) => {
+  authController.resetPasswordWithOtp(req, res, next);
 });
 
 /**
