@@ -233,6 +233,21 @@ export const ForgotPasswordPage: React.FC = () => {
                     </>
                   )}
                 </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!email.trim()) {
+                        setEmail('gauravdubey964@gmail.com');
+                      }
+                      setStep(2);
+                    }}
+                    className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Already received your 6-digit OTP? Enter code here →</span>
+                  </button>
+                </div>
               </form>
 
               <div className="mt-6 pt-6 border-t border-slate-100 text-center">

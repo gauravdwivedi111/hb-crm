@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight, ShieldAlert } from 'lucide-react';
+import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight, Mail, KeyRound } from 'lucide-react';
 import { api } from '../services/api';
 
 export const ResetPasswordPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const token = searchParams.get('token') || '';
-  const email = (searchParams.get('email') || '').trim();
-  const otp = (searchParams.get('otp') || '').trim();
+  const tokenParam = searchParams.get('token') || '';
+  const emailParam = (searchParams.get('email') || '').trim();
+  const otpParam = (searchParams.get('otp') || '').trim();
 
+  const [email, setEmail] = useState(emailParam || 'gauravdubey964@gmail.com');
+  const [otp, setOtp] = useState(otpParam);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -19,18 +21,20 @@ export const ResetPasswordPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const hasValidAuthMethod = Boolean(token.trim() || (email.trim() && otp.trim()));
-
-  useEffect(() => {
-    if (!hasValidAuthMethod) {
-      setError('Missing password reset credentials. Please request a new OTP code or reset link.');
-    }
-  }, [hasValidAuthMethod]);
-
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    if (!hasValidAuthMethod) {
-      setError('Missing or invalid reset credentials. Please request a new OTP code or reset link.');
+
+    const cleanEmail = email.trim();
+    const cleanOtp = otp.trim();
+    const cleanToken = tokenParam.trim();
+
+    if (!cleanEmail && !cleanToken) {
+      setError('Please enter your work email address.');
+      return;
+    }
+
+    if (!cleanToken && (!cleanOtp || cleanOtp.length !== 6)) {
+      setError('Please enter the 6-digit OTP code sent to your email.');
       return;
     }
 
@@ -48,10 +52,12 @@ export const ResetPasswordPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      if (email.trim() && otp.trim()) {
-        await api.auth.resetPasswordWithOtp(email.trim(), otp.trim(), newPassword);
+      if (cleanEmail && cleanOtp) {
+        await api.auth.resetPasswordWithOtp(cleanEmail, cleanOtp, newPassword);
+      } else if (cleanToken) {
+        await api.auth.resetPassword(cleanToken, newPassword);
       } else {
-        await api.auth.resetPassword(token.trim(), newPassword);
+        throw new Error('Please enter both your email and the 6-digit OTP code.');
       }
 
       setIsSuccess(true);
@@ -67,7 +73,7 @@ export const ResetPasswordPage: React.FC = () => {
       setError(
         err instanceof Error
           ? err.message
-          : 'Invalid or expired password reset link/OTP. Please request a new one.',
+          : 'Invalid or expired OTP code or reset link. Please check and try again.',
       );
     } finally {
       setIsSubmitting(false);
@@ -82,9 +88,9 @@ export const ResetPasswordPage: React.FC = () => {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-600 text-white font-bold text-xl shadow-md shadow-brand-500/20 mb-3">
             HB
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Set New Password</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reset Your Password</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Choose a strong, secure password for your HB CRM account
+            Enter your OTP code and choose a new password
           </p>
         </div>
 
@@ -92,39 +98,19 @@ export const ResetPasswordPage: React.FC = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           {isSuccess ? (
             <div className="text-center space-y-4 py-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
-                <CheckCircle2 className="w-6 h-6" />
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h3 className="text-base font-bold text-slate-900">Password Reset Complete!</h3>
-              <p className="text-xs text-slate-600">
-                Your password has been updated and existing sessions have been securely terminated.
-                Redirecting you to login...
+              <h3 className="text-lg font-bold text-slate-900">Password Reset Complete!</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Your password has been updated and all previous sessions have been securely terminated.
               </p>
               <div className="pt-2">
                 <Link
                   to="/login"
-                  className="inline-flex items-center gap-2 py-2 px-4 rounded-xl bg-brand-600 text-white font-semibold text-xs shadow-xs hover:bg-brand-700 transition-all cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-brand-600 text-white font-semibold text-xs shadow-xs hover:bg-brand-700 transition-all cursor-pointer"
                 >
                   <span>Go to Login Now</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            </div>
-          ) : !hasValidAuthMethod ? (
-            <div className="text-center space-y-4 py-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
-                <ShieldAlert className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900">Invalid or Missing Credentials</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                This reset link is missing its authentication token or OTP code, or it has already expired.
-              </p>
-              <div className="pt-2">
-                <Link
-                  to="/forgot-password"
-                  className="inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-brand-600 text-white font-semibold text-xs shadow-xs hover:bg-brand-700 transition-all cursor-pointer"
-                >
-                  <span>Request a New Reset Link</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -141,7 +127,7 @@ export const ResetPasswordPage: React.FC = () => {
                         to="/forgot-password"
                         className="inline-block text-xs font-semibold text-red-800 underline hover:text-red-900 pt-1"
                       >
-                        Request a fresh reset link →
+                        Request a fresh OTP code →
                       </Link>
                     ) : null}
                   </div>
@@ -149,6 +135,57 @@ export const ResetPasswordPage: React.FC = () => {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Email Address */}
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
+                  >
+                    Work Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="gauravdubey964@gmail.com"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                {/* 6-Digit OTP */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label
+                      htmlFor="otp"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-700"
+                    >
+                      6-Digit OTP Code
+                    </label>
+                    <span className="text-[11px] text-brand-600 font-medium">From your email</span>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      id="otp"
+                      type="text"
+                      inputMode="numeric"
+                      required
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="123456"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base tracking-[0.35em] font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-center"
+                    />
+                  </div>
+                </div>
+
+                {/* New Password */}
                 <div>
                   <label
                     htmlFor="newPassword"
@@ -174,6 +211,7 @@ export const ResetPasswordPage: React.FC = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -181,6 +219,7 @@ export const ResetPasswordPage: React.FC = () => {
                   <p className="text-[11px] text-slate-500 mt-1">Must be at least 10 characters long.</p>
                 </div>
 
+                {/* Confirm Password */}
                 <div>
                   <label
                     htmlFor="confirmPassword"
@@ -206,6 +245,7 @@ export const ResetPasswordPage: React.FC = () => {
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
                       aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      tabIndex={-1}
                     >
                       {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -224,17 +264,24 @@ export const ResetPasswordPage: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <span>Reset Password</span>
+                      <span>Reset Password & Sign In</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
                 </button>
               </form>
 
-              <div className="mt-6 pt-6 border-t border-slate-100 text-center">
+              <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-3 text-xs">
+                <Link
+                  to="/forgot-password"
+                  className="text-brand-600 hover:text-brand-700 font-medium"
+                >
+                  Request a new OTP code
+                </Link>
+                <span className="text-slate-300">•</span>
                 <Link
                   to="/login"
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+                  className="text-slate-500 hover:text-slate-800 font-medium"
                 >
                   Back to Sign In
                 </Link>
