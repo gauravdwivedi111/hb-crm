@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: hb-crm-backend
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: '*'
+      - key: TIMEZONE
+        value: Asia/Kolkata
+      - key: COOKIE_SAME_SITE
+        value: none
