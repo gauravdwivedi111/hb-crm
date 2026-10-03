@@ -5,6 +5,7 @@ import {
   requireAuth,
   requireRole,
   authRateLimiter,
+  refreshRateLimiter,
   forgotPasswordIpLimiter,
   forgotPasswordEmailLimiter,
 } from '../middleware/auth.middleware.js';
@@ -21,8 +22,8 @@ authRouter.post('/login', authRateLimiter, (req, res, next) => {
   authController.login(req, res, next);
 });
 
-// Refresh token with IP rate limiting and token rotation
-authRouter.post('/refresh', authRateLimiter, (req, res, next) => {
+// Refresh token with dedicated rate limiting and token rotation
+authRouter.post('/refresh', refreshRateLimiter, (req, res, next) => {
   authController.refresh(req, res, next);
 });
 

@@ -25,6 +25,10 @@ import { errorHandler } from './middleware/errorHandler.js';
 export const createApp = (): Express => {
   const app = express();
 
+  // Trust reverse proxy (Render / Cloudflare / Vercel) so express-rate-limit and req.ip
+  // correctly identify individual client IP addresses from X-Forwarded-For headers
+  app.set('trust proxy', 1);
+
   // Explicitly disable X-Powered-By to prevent technology stack fingerprinting
   app.disable('x-powered-by');
 

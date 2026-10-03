@@ -133,7 +133,7 @@ export const requireRole = (...roles: Role[]) => {
 
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: config.isProduction ? 10 : 1000, // 10 in production, 1000 in dev/test
+  max: config.isProduction ? 100 : 1000, // 100 attempts per 15 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -142,9 +142,20 @@ export const authRateLimiter = rateLimit({
   },
 });
 
+export const refreshRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: config.isProduction ? 1000 : 3000, // High ceiling for background token refreshes across tabs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: 'error',
+    message: 'Too many token refresh requests. Please try again later.',
+  },
+});
+
 export const generalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: config.isProduction ? 100 : 2000, // 100 in production, 2000 in dev/test
+  max: config.isProduction ? 2500 : 5000, // Generous ceiling for enterprise dashboard & search usage
   standardHeaders: true,
   legacyHeaders: false,
   message: {
