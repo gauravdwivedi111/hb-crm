@@ -23,3 +23,7 @@ services:
         value: Asia/Kolkata
       - key: COOKIE_SAME_SITE
         value: none
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM_ADDRESS
+        value: HB CRM <onboarding@resend.dev>
