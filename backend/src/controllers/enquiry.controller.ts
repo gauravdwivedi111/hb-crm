@@ -40,6 +40,7 @@ export const listEnquiriesQuerySchema = z.object({
   status: z.nativeEnum(EnquiryStatus).optional(),
   priority: z.nativeEnum(Priority).optional(),
   assignedToId: z.string().trim().optional(),
+  customerId: z.string().trim().optional(),
   search: z.string().trim().optional(),
 });
 
@@ -47,6 +48,7 @@ export const exportEnquiriesQuerySchema = z.object({
   status: z.nativeEnum(EnquiryStatus).optional(),
   priority: z.nativeEnum(Priority).optional(),
   assignedToId: z.string().trim().optional(),
+  customerId: z.string().trim().optional(),
   search: z.string().trim().optional(),
 });
 

@@ -478,6 +478,24 @@ export const EnquiryDetailPage: React.FC = () => {
               </h1>
               <StatusBadge status={enquiry.status} size="lg" />
               <PriorityBadge priority={enquiry.priority} size="md" />
+
+              {(enquiry.customerId || enquiry.customer?.id) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/enquiries?customerId=${enquiry.customerId || enquiry.customer?.id}&search=${encodeURIComponent(
+                        enquiry.customer?.name || enquiry.companyName || '',
+                      )}`,
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-semibold transition-colors cursor-pointer"
+                  title="View all enquiries submitted by this customer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-blue-600" />
+                  <span>All Customer Enquiries</span>
+                </button>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">

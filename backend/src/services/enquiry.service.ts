@@ -51,6 +51,7 @@ export interface ListEnquiriesQuery {
   status?: EnquiryStatus;
   priority?: Priority;
   assignedToId?: string;
+  customerId?: string;
   search?: string;
 }
 
@@ -251,6 +252,10 @@ export class EnquiryService {
       conditions.push({ priority: query.priority });
     }
 
+    if (query.customerId && query.customerId.trim() !== '') {
+      conditions.push({ customerId: query.customerId.trim() });
+    }
+
     if (query.search && query.search.trim() !== '') {
       const term = query.search.trim();
       conditions.push({
@@ -262,6 +267,7 @@ export class EnquiryService {
           { customer: { name: { contains: term, mode: 'insensitive' } } },
           { customer: { phone: { contains: term, mode: 'insensitive' } } },
           { customer: { email: { contains: term, mode: 'insensitive' } } },
+          { customer: { companyName: { contains: term, mode: 'insensitive' } } },
         ],
       });
     }

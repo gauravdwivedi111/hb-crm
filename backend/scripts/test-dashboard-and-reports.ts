@@ -179,7 +179,7 @@ async function runTests(): Promise<void> {
       assignedToId: employeeUserA.id,
       createdById: employeeUserA.id,
       lastContactedAt: null,
-      createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+      createdAt: new Date(now.getTime() - 12 * 60 * 60 * 1000), // 12 hours ago (within current month)
     },
   });
 
@@ -194,7 +194,7 @@ async function runTests(): Promise<void> {
       assignedToId: employeeUserA.id,
       createdById: employeeUserA.id,
       lastContactedAt: new Date(now.getTime() - 1 * 60 * 60 * 1000), // 1 hour ago
-      createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+      createdAt: new Date(now.getTime() - 8 * 60 * 60 * 1000), // 8 hours ago
     },
   });
 
@@ -209,7 +209,7 @@ async function runTests(): Promise<void> {
       assignedToId: employeeUserA.id,
       createdById: employeeUserA.id,
       lastContactedAt: new Date(now.getTime() - 5 * 60 * 60 * 1000), // 5 hours ago
-      createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+      createdAt: new Date(now.getTime() - 10 * 60 * 60 * 1000), // 10 hours ago
       updatedAt: now,
     },
   });

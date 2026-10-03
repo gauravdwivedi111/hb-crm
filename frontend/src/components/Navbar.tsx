@@ -75,7 +75,7 @@ export const Navbar: React.FC = () => {
     if (item.type === 'ENQUIRY') {
       navigate(`/enquiries/${item.id}`);
     } else {
-      navigate(`/enquiries?search=${encodeURIComponent(item.phone || item.title || '')}`);
+      navigate(`/enquiries?customerId=${item.id}&search=${encodeURIComponent(item.title)}`);
     }
   };
 
@@ -163,7 +163,14 @@ export const Navbar: React.FC = () => {
                           </p>
                         </div>
                       </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.type === 'CUSTOMER' && typeof item.metadata?.enquiryCount === 'number' && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700">
+                            {item.metadata.enquiryCount} deals
+                          </span>
+                        )}
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
                     </div>
                   ))}
                 </div>

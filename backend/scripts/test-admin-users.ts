@@ -48,6 +48,8 @@ async function run() {
   console.log(`Target Backend: ${API_BASE}\n`);
 
   const passwordHash = await argon2.hash('TestPassword123!', { type: argon2.argon2id });
+  const adminPassword = 'AdminPassword123!';
+  const adminPasswordHash = await argon2.hash(adminPassword, { type: argon2.argon2id });
 
   // 1. Ensure test admin and test non-admin exist
   const adminEmail = 'admin@hbcrm.local';
@@ -57,9 +59,14 @@ async function run() {
       data: {
         name: 'Super Admin',
         email: adminEmail,
-        passwordHash,
+        passwordHash: adminPasswordHash,
         role: Role.ADMIN,
       },
+    });
+  } else {
+    await prisma.user.update({
+      where: { id: admin.id },
+      data: { passwordHash: adminPasswordHash },
     });
   }
 

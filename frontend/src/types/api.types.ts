@@ -276,6 +276,7 @@ export interface EnquiriesQueryParams {
   status?: EnquiryStatus;
   priority?: Priority;
   assignedToId?: string;
+  customerId?: string;
   search?: string;
 }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import {
   Enquiry,
@@ -42,6 +42,11 @@ export const EnquiryListPage: React.FC = () => {
   const { user } = useAuth();
   const isManagerPlus = Boolean(user && MANAGER_ROLES.includes(user.role));
 
+  // URL search params
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlCustomerId = searchParams.get('customerId') || '';
+  const urlSearch = searchParams.get('search') || '';
+
   // Data state
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [meta, setMeta] = useState<EnquiriesPaginationMeta>({
@@ -54,8 +59,10 @@ export const EnquiryListPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(urlCustomerId);
+  const [customerFilterLabel, setCustomerFilterLabel] = useState<string>(urlSearch);
+  const [searchQuery, setSearchQuery] = useState<string>(urlCustomerId ? '' : urlSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState<string>(urlCustomerId ? '' : urlSearch);
   const [selectedStatuses, setSelectedStatuses] = useState<EnquiryStatus[]>([]);
   const [selectedPriority, setSelectedPriority] = useState<Priority | ''>('');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('');
@@ -80,6 +87,7 @@ export const EnquiryListPage: React.FC = () => {
             status: selectedStatuses.length === 1 ? selectedStatuses[0] : undefined,
             priority: selectedPriority || undefined,
             assignedToId: selectedAssignee || undefined,
+            customerId: selectedCustomerId || undefined,
             search: debouncedSearch || undefined,
           };
 
@@ -136,6 +144,25 @@ export const EnquiryListPage: React.FC = () => {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
+  // Sync URL search parameters if changed from outside (e.g. navigation, Navbar search)
+  useEffect(() => {
+    const cId = searchParams.get('customerId') || '';
+    const sQuery = searchParams.get('search') || '';
+    if (cId !== selectedCustomerId) {
+      setSelectedCustomerId(cId);
+      if (sQuery) {
+        setCustomerFilterLabel(sQuery);
+      } else {
+        setCustomerFilterLabel('');
+      }
+      setCurrentPage(1);
+    } else if (!cId && sQuery && sQuery !== searchQuery) {
+      setSearchQuery(sQuery);
+      setDebouncedSearch(sQuery);
+      setCurrentPage(1);
+    }
+  }, [searchParams]);
+
   // Load team members if Manager+
   useEffect(() => {
     if (isManagerPlus) {
@@ -160,6 +187,7 @@ export const EnquiryListPage: React.FC = () => {
         page: currentPage,
         limit: 10,
         search: debouncedSearch || undefined,
+        customerId: selectedCustomerId || undefined,
         status: selectedStatuses.length === 1 ? selectedStatuses[0] : undefined,
         priority: selectedPriority || undefined,
         assignedToId: isManagerPlus && selectedAssignee ? selectedAssignee : undefined,
@@ -173,12 +201,22 @@ export const EnquiryListPage: React.FC = () => {
 
       setEnquiries(filtered);
       setMeta(res.meta);
+
+      // Auto-detect customer label if not set yet
+      if (selectedCustomerId && !customerFilterLabel && filtered.length > 0) {
+        const match = filtered.find((e) => e.customerId === selectedCustomerId);
+        if (match?.customer?.name) {
+          setCustomerFilterLabel(match.customer.name);
+        } else if (match?.companyName) {
+          setCustomerFilterLabel(match.companyName);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch enquiries.');
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, debouncedSearch, selectedStatuses, selectedPriority, selectedAssignee, isManagerPlus]);
+  }, [currentPage, debouncedSearch, selectedCustomerId, selectedStatuses, selectedPriority, selectedAssignee, isManagerPlus, customerFilterLabel]);
 
   useEffect(() => {
     void fetchEnquiries();
@@ -192,17 +230,31 @@ export const EnquiryListPage: React.FC = () => {
     );
   };
 
+  const clearCustomerFilter = (): void => {
+    setSelectedCustomerId('');
+    setCustomerFilterLabel('');
+    const next = new URLSearchParams(searchParams);
+    next.delete('customerId');
+    next.delete('search');
+    setSearchParams(next);
+    setCurrentPage(1);
+  };
+
   const clearAllFilters = (): void => {
     setSearchQuery('');
     setDebouncedSearch('');
     setSelectedStatuses([]);
     setSelectedPriority('');
     setSelectedAssignee('');
+    setSelectedCustomerId('');
+    setCustomerFilterLabel('');
+    setSearchParams({});
     setCurrentPage(1);
   };
 
   const hasActiveFilters =
     Boolean(debouncedSearch) ||
+    Boolean(selectedCustomerId) ||
     selectedStatuses.length > 0 ||
     Boolean(selectedPriority) ||
     Boolean(selectedAssignee);
@@ -509,6 +561,34 @@ export const EnquiryListPage: React.FC = () => {
             );
           })}
         </div>
+
+        {/* Customer Scoped Filter Banner */}
+        {selectedCustomerId && (
+          <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-blue-50/80 border border-blue-200/90 rounded-xl px-3.5 py-2.5 text-xs text-blue-900 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold px-2 py-0.5 rounded-md bg-blue-600 text-white uppercase tracking-wider text-[10px] shrink-0">
+                Customer Scoped
+              </span>
+              <span>
+                Showing enquiries for customer:{' '}
+                <strong className="font-extrabold text-blue-950">
+                  {customerFilterLabel || enquiries[0]?.customer?.name || 'Customer'}
+                </strong>
+                {customerFilterLabel && enquiries[0]?.customer?.companyName && enquiries[0].customer.companyName !== customerFilterLabel && (
+                  <span className="text-blue-700 ml-1">({enquiries[0].customer.companyName})</span>
+                )}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={clearCustomerFilter}
+              className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:text-blue-900 hover:bg-blue-100/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer border border-blue-200"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Show All Customers</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Error state */}
@@ -587,8 +667,26 @@ export const EnquiryListPage: React.FC = () => {
                   >
                     {/* Customer Name & Company */}
                     <td className="py-4 px-4 sm:px-6">
-                      <div className="font-semibold text-slate-900 group-hover:text-brand-700 transition-colors">
-                        {item.customer?.name || item.companyName || 'Unnamed Lead'}
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-900 group-hover:text-brand-700 transition-colors">
+                          {item.customer?.name || item.companyName || 'Unnamed Lead'}
+                        </span>
+                        {item.customerId && item.customerId !== selectedCustomerId && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCustomerId(item.customerId!);
+                              setCustomerFilterLabel(item.customer?.name || item.companyName || '');
+                              setSearchParams({ customerId: item.customerId!, search: item.customer?.name || item.companyName || '' });
+                              setCurrentPage(1);
+                            }}
+                            className="hidden group-hover:inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded transition-colors"
+                            title="Filter all enquiries by this customer"
+                          >
+                            All Deals
+                          </button>
+                        )}
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
                         {item.companyName || item.customer?.companyName ? (

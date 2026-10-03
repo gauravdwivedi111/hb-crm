@@ -64,6 +64,21 @@ export class SearchService {
         companyName: true,
         location: true,
         createdAt: true,
+        _count: {
+          select: { enquiries: true },
+        },
+        enquiries: {
+          select: {
+            id: true,
+            product: true,
+            status: true,
+            priority: true,
+            expectedValue: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        },
       },
     });
 
@@ -78,6 +93,10 @@ export class SearchService {
               { product: { contains: q, mode: 'insensitive' } },
               { phone: { contains: q, mode: 'insensitive' } },
               { email: { contains: q, mode: 'insensitive' } },
+              { customer: { name: { contains: q, mode: 'insensitive' } } },
+              { customer: { phone: { contains: q, mode: 'insensitive' } } },
+              { customer: { email: { contains: q, mode: 'insensitive' } } },
+              { customer: { companyName: { contains: q, mode: 'insensitive' } } },
             ],
           },
         ],
@@ -94,7 +113,7 @@ export class SearchService {
         priority: true,
         createdAt: true,
         customer: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, phone: true, email: true },
         },
       },
     });
@@ -145,13 +164,15 @@ export class SearchService {
         metadata: {
           companyName: c.companyName,
           location: c.location,
+          enquiryCount: c._count?.enquiries ?? 0,
+          recentEnquiries: c.enquiries ?? [],
         },
       });
     }
 
     // Format enquiry results
     for (const e of enquiries) {
-      const score = computeScore([e.phone, e.email, e.companyName, e.product]);
+      const score = computeScore([e.phone, e.email, e.companyName, e.product, e.customer?.name]);
       results.push({
         id: e.id,
         type: 'ENQUIRY',
@@ -166,6 +187,7 @@ export class SearchService {
           priority: e.priority,
           product: e.product,
           customerId: e.customer?.id,
+          customerName: e.customer?.name,
         },
       });
     }

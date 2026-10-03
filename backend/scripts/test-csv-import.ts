@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import argon2 from 'argon2';
 import { Role, Priority, EnquiryStatus, ActivityType } from '@prisma/client';
 import { prisma } from '../src/prisma/client.js';
 
@@ -75,22 +76,61 @@ async function runTests(): Promise<void> {
   try {
     // 0. Authenticate test personas
     console.info('🔑 Authenticating organizational roles...');
+
+    const adminHash = await argon2.hash('AdminPassword123!', { type: argon2.argon2id });
+    const userHash = await argon2.hash('Password123!', { type: argon2.argon2id });
+
+    let admin = await prisma.user.findUnique({ where: { email: 'admin@hbcrm.local' } });
+    if (!admin) {
+      admin = await prisma.user.create({
+        data: { name: 'Super Admin', email: 'admin@hbcrm.local', passwordHash: adminHash, role: Role.ADMIN },
+      });
+    } else {
+      await prisma.user.update({ where: { id: admin.id }, data: { passwordHash: adminHash } });
+    }
+
+    let rajesh = await prisma.user.findUnique({ where: { email: 'rajesh.verma@hbcrm.local' } });
+    if (!rajesh) {
+      rajesh = await prisma.user.create({
+        data: { name: 'Rajesh Verma', email: 'rajesh.verma@hbcrm.local', passwordHash: userHash, role: Role.MANAGER, supervisorId: admin.id },
+      });
+    } else {
+      await prisma.user.update({ where: { id: rajesh.id }, data: { passwordHash: userHash } });
+    }
+
+    let priya = await prisma.user.findUnique({ where: { email: 'priya.sharma@hbcrm.local' } });
+    if (!priya) {
+      priya = await prisma.user.create({
+        data: { name: 'Priya Sharma', email: 'priya.sharma@hbcrm.local', passwordHash: userHash, role: Role.EMPLOYEE, supervisorId: rajesh.id },
+      });
+    } else {
+      await prisma.user.update({ where: { id: priya.id }, data: { passwordHash: userHash } });
+    }
+
+    let vikram = await prisma.user.findUnique({ where: { email: 'vikram.singh@hbcrm.local' } });
+    if (!vikram) {
+      vikram = await prisma.user.create({
+        data: { name: 'Vikram Singh', email: 'vikram.singh@hbcrm.local', passwordHash: userHash, role: Role.MANAGER, supervisorId: admin.id },
+      });
+    } else {
+      await prisma.user.update({ where: { id: vikram.id }, data: { passwordHash: userHash } });
+    }
+
+    let sneha = await prisma.user.findUnique({ where: { email: 'sneha.reddy@hbcrm.local' } });
+    if (!sneha) {
+      sneha = await prisma.user.create({
+        data: { name: 'Sneha Reddy', email: 'sneha.reddy@hbcrm.local', passwordHash: userHash, role: Role.EMPLOYEE, supervisorId: vikram.id },
+      });
+    } else {
+      await prisma.user.update({ where: { id: sneha.id }, data: { passwordHash: userHash } });
+    }
+
     const adminToken = await loginUser('admin@hbcrm.local', 'AdminPassword123!');
     const manager1Token = await loginUser('rajesh.verma@hbcrm.local', 'Password123!');
     const employee1Token = await loginUser('priya.sharma@hbcrm.local', 'Password123!');
 
-    // Fetch Priya user record
-    const priyaUser = await prisma.user.findUnique({
-      where: { email: 'priya.sharma@hbcrm.local' },
-    });
-    // Fetch Sneha user record (reports to Vikram, not Rajesh)
-    const snehaUser = await prisma.user.findUnique({
-      where: { email: 'sneha.reddy@hbcrm.local' },
-    });
-
-    if (!priyaUser || !snehaUser) {
-      throw new Error('Required test users (Priya or Sneha) not found in database.');
-    }
+    const priyaUser = priya;
+    const snehaUser = sneha;
 
     const testTimestamp = Date.now();
     const phoneValid1 = `9711${String(testTimestamp).slice(-6)}`;

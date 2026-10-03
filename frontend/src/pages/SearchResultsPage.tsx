@@ -196,14 +196,21 @@ export const SearchResultsPage: React.FC = () => {
                 {customerResults.map((c) => (
                   <div
                     key={c.id}
-                    onClick={() => navigate(`/enquiries?search=${encodeURIComponent(c.phone || c.title || '')}`)}
+                    onClick={() => navigate(`/enquiries?customerId=${c.id}&search=${encodeURIComponent(c.title)}`)}
                     className="py-3.5 hover:bg-slate-50/80 rounded-xl px-2.5 transition-colors cursor-pointer space-y-1.5 group"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-bold text-slate-900 text-sm group-hover:text-brand-600 transition-colors">
                         {highlightMatch(c.title, rawQuery)}
                       </p>
-                      {renderScoreBadge(c.score)}
+                      <div className="flex items-center gap-1.5">
+                        {typeof c.metadata?.enquiryCount === 'number' && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                            {c.metadata.enquiryCount} {c.metadata.enquiryCount === 1 ? 'Enquiry' : 'Enquiries'}
+                          </span>
+                        )}
+                        {renderScoreBadge(c.score)}
+                      </div>
                     </div>
 
                     {c.subtitle && (
@@ -213,7 +220,7 @@ export const SearchResultsPage: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-1">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-0.5">
                       <div className="flex items-center gap-1 font-mono">
                         <Phone className="w-3 h-3 text-slate-400" />
                         <span>{highlightMatch(c.phone || '—', rawQuery)}</span>
@@ -226,8 +233,30 @@ export const SearchResultsPage: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-1 text-[11px] text-brand-600 font-semibold group-hover:underline">
-                      <span>View customer enquiries</span>
+                    {Array.isArray(c.metadata?.recentEnquiries) && c.metadata.recentEnquiries.length > 0 && (
+                      <div className="pt-1 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-slate-400 font-semibold mr-0.5">Recent:</span>
+                        {(c.metadata.recentEnquiries as Array<{ id: string; product?: string | null; status: string }>).map((rec) => (
+                          <span
+                            key={rec.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/enquiries/${rec.id}`);
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 bg-slate-100 hover:bg-brand-50 text-slate-700 hover:text-brand-700 rounded-md transition-colors cursor-pointer border border-slate-200/60"
+                            title="Open enquiry directly"
+                          >
+                            <span>{rec.product || 'Enquiry'}</span>
+                            <span className="text-[9px] uppercase font-bold text-slate-500">({rec.status})</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1.5 text-xs text-brand-600 font-semibold group-hover:underline">
+                      <span>
+                        View all {typeof c.metadata?.enquiryCount === 'number' ? `${c.metadata.enquiryCount} ` : ''}enquiries for this customer
+                      </span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </div>
                   </div>

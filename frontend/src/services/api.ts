@@ -238,6 +238,7 @@ export const api = {
       if (params.status) searchParams.set('status', params.status);
       if (params.priority) searchParams.set('priority', params.priority);
       if (params.assignedToId) searchParams.set('assignedToId', params.assignedToId);
+      if (params.customerId) searchParams.set('customerId', params.customerId);
       if (params.search && params.search.trim()) searchParams.set('search', params.search.trim());
 
       const queryStr = searchParams.toString();
@@ -287,6 +288,7 @@ export const api = {
       if (params.status) searchParams.set('status', params.status);
       if (params.priority) searchParams.set('priority', params.priority);
       if (params.assignedToId) searchParams.set('assignedToId', params.assignedToId);
+      if (params.customerId) searchParams.set('customerId', params.customerId);
       if (params.search && params.search.trim()) searchParams.set('search', params.search.trim());
 
       const queryStr = searchParams.toString();

@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import argon2 from 'argon2';
 import { Role } from '@prisma/client';
 import { prisma } from '../src/prisma/client.js';
 import { emailService } from '../src/services/email.service.js';
@@ -48,22 +49,86 @@ async function runTests(): Promise<void> {
   console.log('   IN-APP NOTIFICATIONS & EMAIL ALERT SYSTEM TEST SUITE    ');
   console.log('===========================================================');
 
-  // Find or verify seeded test users
-  const adminUser = await prisma.user.findFirst({
+  const defaultHash = await argon2.hash('Password123!', { type: argon2.argon2id });
+  const adminHash = await argon2.hash('AdminPassword123!', { type: argon2.argon2id });
+
+  let adminUser = await prisma.user.findFirst({
     where: { role: Role.ADMIN, email: 'admin@hbcrm.local' },
   });
-  const managerUser = await prisma.user.findFirst({
+  if (!adminUser) {
+    adminUser = await prisma.user.create({
+      data: {
+        name: 'Super Admin',
+        email: 'admin@hbcrm.local',
+        passwordHash: adminHash,
+        role: Role.ADMIN,
+      },
+    });
+  } else {
+    await prisma.user.update({
+      where: { id: adminUser.id },
+      data: { passwordHash: adminHash },
+    });
+  }
+
+  let managerUser = await prisma.user.findFirst({
     where: { email: 'rajesh.verma@hbcrm.local' },
   });
-  const employeeUser = await prisma.user.findFirst({
+  if (!managerUser) {
+    managerUser = await prisma.user.create({
+      data: {
+        name: 'Rajesh Verma',
+        email: 'rajesh.verma@hbcrm.local',
+        passwordHash: defaultHash,
+        role: Role.MANAGER,
+        supervisorId: adminUser.id,
+      },
+    });
+  } else {
+    await prisma.user.update({
+      where: { id: managerUser.id },
+      data: { passwordHash: defaultHash },
+    });
+  }
+
+  let employeeUser = await prisma.user.findFirst({
     where: { email: 'priya.sharma@hbcrm.local' },
   });
-  const secondEmployee = await prisma.user.findFirst({
+  if (!employeeUser) {
+    employeeUser = await prisma.user.create({
+      data: {
+        name: 'Priya Sharma',
+        email: 'priya.sharma@hbcrm.local',
+        passwordHash: defaultHash,
+        role: Role.EMPLOYEE,
+        supervisorId: managerUser.id,
+      },
+    });
+  } else {
+    await prisma.user.update({
+      where: { id: employeeUser.id },
+      data: { passwordHash: defaultHash },
+    });
+  }
+
+  let secondEmployee = await prisma.user.findFirst({
     where: { email: 'amit.patel@hbcrm.local' },
   });
-
-  if (!adminUser || !managerUser || !employeeUser || !secondEmployee) {
-    throw new Error('Test users missing. Please run database seed first.');
+  if (!secondEmployee) {
+    secondEmployee = await prisma.user.create({
+      data: {
+        name: 'Amit Patel',
+        email: 'amit.patel@hbcrm.local',
+        passwordHash: defaultHash,
+        role: Role.EMPLOYEE,
+        supervisorId: managerUser.id,
+      },
+    });
+  } else {
+    await prisma.user.update({
+      where: { id: secondEmployee.id },
+      data: { passwordHash: defaultHash },
+    });
   }
 
   console.log('\n--- 1. EMAIL SERVICE UNIT VERIFICATION ---');
