@@ -33,7 +33,10 @@ import {
   Loader2,
   ChevronDown,
   Check,
+  CheckCircle2,
+  ExternalLink,
 } from 'lucide-react';
+import { parseGSTIN, openGstPortal } from '../utils/gstUtils';
 
 const MANAGER_ROLES: Role[] = ['ADMIN', 'DGM', 'AGM', 'MANAGER'];
 
@@ -114,6 +117,7 @@ export const EnquiryListPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [gstCopiedToast, setGstCopiedToast] = useState<boolean>(false);
   const [formData, setFormData] = useState<CreateEnquiryPayload>({
     customer: {
       name: '',
@@ -121,12 +125,14 @@ export const EnquiryListPage: React.FC = () => {
       email: '',
       companyName: '',
       location: '',
+      gstNumber: '',
       notes: '',
     },
     companyName: '',
     phone: '',
     email: '',
     location: '',
+    gstNumber: '',
     source: 'WEBSITE',
     product: '',
     priority: 'MEDIUM',
@@ -134,6 +140,23 @@ export const EnquiryListPage: React.FC = () => {
     remarks: '',
     assignedToId: '',
   });
+
+  const handleVerifyGst = async (gstin: string): Promise<void> => {
+    await openGstPortal(gstin);
+    setGstCopiedToast(true);
+    setTimeout(() => setGstCopiedToast(false), 3500);
+  };
+
+  const handleAutoFillGstLocation = (stateName: string): void => {
+    setFormData((prev) => ({
+      ...prev,
+      location: stateName,
+      customer: {
+        ...prev.customer!,
+        location: stateName,
+      },
+    }));
+  };
 
   // Debounce search input
   useEffect(() => {
@@ -276,6 +299,7 @@ export const EnquiryListPage: React.FC = () => {
           ...(field === 'companyName' ? { companyName: value } : {}),
           ...(field === 'email' ? { email: value } : {}),
           ...(field === 'location' ? { location: value } : {}),
+          ...(field === 'gstNumber' ? { gstNumber: value.toUpperCase().replace(/[^0-9A-Z]/g, '') } : {}),
         };
       }
       return { ...prev, [name]: value };
@@ -293,6 +317,7 @@ export const EnquiryListPage: React.FC = () => {
     setCreateError(null);
     setIsCreating(true);
     try {
+      const cleanGst = formData.customer.gstNumber?.trim().toUpperCase() || undefined;
       const payload: CreateEnquiryPayload = {
         customer: {
           name: formData.customer.name.trim(),
@@ -300,11 +325,13 @@ export const EnquiryListPage: React.FC = () => {
           email: formData.customer.email?.trim() || null,
           companyName: formData.customer.companyName?.trim() || null,
           location: formData.customer.location?.trim() || null,
+          gstNumber: cleanGst || null,
         },
         phone: formData.customer.phone.trim(),
         email: formData.customer.email?.trim() || undefined,
         companyName: formData.customer.companyName?.trim() || undefined,
         location: formData.customer.location?.trim() || undefined,
+        gstNumber: cleanGst,
         product: formData.product?.trim() || undefined,
         source: formData.source?.trim() || undefined,
         priority: formData.priority,
@@ -317,11 +344,12 @@ export const EnquiryListPage: React.FC = () => {
       setIsModalOpen(false);
       // Reset form
       setFormData({
-        customer: { name: '', phone: '', email: '', companyName: '', location: '', notes: '' },
+        customer: { name: '', phone: '', email: '', companyName: '', location: '', gstNumber: '', notes: '' },
         companyName: '',
         phone: '',
         email: '',
         location: '',
+        gstNumber: '',
         source: 'WEBSITE',
         product: '',
         priority: 'MEDIUM',
@@ -903,6 +931,113 @@ export const EnquiryListPage: React.FC = () => {
                       placeholder="Apex Industries Ltd"
                       className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-slate-900"
                     />
+                  </div>
+
+                  {/* GST Number Field */}
+                  <div className="sm:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-700">
+                        GST Number (Optional)
+                      </label>
+                      <span className="text-[11px] text-slate-400">
+                        15-digit Indian GSTIN
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="customer.gstNumber"
+                        maxLength={15}
+                        value={formData.customer?.gstNumber || ''}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+                          setFormData((prev) => ({
+                            ...prev,
+                            gstNumber: val,
+                            customer: {
+                              ...prev.customer!,
+                              gstNumber: val,
+                            },
+                          }));
+                        }}
+                        placeholder="e.g. 27AAACA1234A1Z5"
+                        className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-slate-900 uppercase"
+                      />
+                      {Boolean(formData.customer?.gstNumber) && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 font-mono">
+                          {formData.customer?.gstNumber?.length}/15
+                        </span>
+                      )}
+                    </div>
+
+                    {/* GST Validation Status Card */}
+                    {Boolean(formData.customer?.gstNumber) && (() => {
+                      const gstParsed = parseGSTIN(formData.customer?.gstNumber || '');
+                      if (gstParsed.isValid) {
+                        return (
+                          <div className="mt-2.5 p-3 rounded-xl bg-emerald-50/90 border border-emerald-200 flex flex-wrap items-center justify-between gap-2.5 text-xs shadow-2xs">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="flex items-center gap-1.5 text-emerald-800 font-semibold">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>{gstParsed.stateName}</span>
+                              </div>
+                              <span className="text-emerald-300">•</span>
+                              <span className="text-emerald-700 font-medium">{gstParsed.entityType}</span>
+                              <span className="text-emerald-300">•</span>
+                              <span className="font-mono text-emerald-900 bg-emerald-100/70 px-1.5 py-0.5 rounded text-[11px]">
+                                PAN: {gstParsed.pan}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {formData.customer?.location !== gstParsed.stateName && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAutoFillGstLocation(gstParsed.stateName || '')}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[11px] transition-colors cursor-pointer shadow-2xs"
+                                  title="Auto-fill City / Location with detected State"
+                                >
+                                  Auto-fill Location
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => void handleVerifyGst(gstParsed.normalized)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100/70 font-semibold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                                title="Copy GST and open official government portal"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>{gstCopiedToast ? 'Copied & Opened!' : 'Verify on GST Portal ↗'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (formData.customer?.gstNumber?.length === 15 && !gstParsed.isChecksumValid) {
+                        return (
+                          <div className="mt-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-2 text-xs text-amber-900">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span>Typo detected in checksum digit. Please verify characters.</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void handleVerifyGst(formData.customer?.gstNumber || '')}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900 hover:underline cursor-pointer shrink-0"
+                            >
+                              <ExternalLink className="w-3 h-3 text-amber-700" />
+                              <span>Check Portal ↗</span>
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          {formData.customer?.gstNumber?.length}/15 characters • Enter full 15-digit GSTIN for instant validation
+                        </p>
+                      );
+                    })()}
                   </div>
 
                   <div className="sm:col-span-2">

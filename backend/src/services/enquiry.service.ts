@@ -27,6 +27,7 @@ export interface InlineCustomerInput {
   email?: string | null;
   companyName?: string | null;
   location?: string | null;
+  gstNumber?: string | null;
   notes?: string | null;
 }
 
@@ -37,6 +38,7 @@ export interface CreateEnquiryInput {
   phone: string;
   email?: string;
   location?: string;
+  gstNumber?: string;
   source?: string;
   product?: string;
   priority?: Priority;
@@ -59,6 +61,7 @@ export interface UpdateEnquiryInput {
   phone?: string;
   email?: string;
   location?: string;
+  gstNumber?: string;
   source?: string;
   product?: string;
   priority?: Priority;
@@ -99,6 +102,9 @@ export class EnquiryService {
       let targetCustomerId = input.customerId;
 
       // Inline customer creation or resolution
+      const normalizedGst =
+        (input.gstNumber || input.customer?.gstNumber)?.trim().toUpperCase() || null;
+
       if (!targetCustomerId && input.customer) {
         const normalizedPhone = input.customer.phone.trim();
         const existingCustomer = await tx.customer.findFirst({
@@ -107,6 +113,12 @@ export class EnquiryService {
 
         if (existingCustomer) {
           targetCustomerId = existingCustomer.id;
+          if (normalizedGst && !existingCustomer.gstNumber) {
+            await tx.customer.update({
+              where: { id: existingCustomer.id },
+              data: { gstNumber: normalizedGst },
+            });
+          }
         } else {
           const newCustomer = await tx.customer.create({
             data: {
@@ -115,6 +127,7 @@ export class EnquiryService {
               email: input.customer.email?.trim().toLowerCase() || null,
               companyName: input.customer.companyName?.trim() || null,
               location: input.customer.location?.trim() || null,
+              gstNumber: normalizedGst,
               notes: input.customer.notes?.trim() || null,
             },
           });
@@ -144,6 +157,7 @@ export class EnquiryService {
           phone: input.phone.trim(),
           email: input.email?.trim().toLowerCase() || null,
           location: input.location?.trim() || null,
+          gstNumber: normalizedGst,
           source: input.source?.trim() || null,
           product: input.product?.trim() || null,
           priority: input.priority || Priority.MEDIUM,
@@ -391,6 +405,7 @@ export class EnquiryService {
           phone: data.phone?.trim(),
           email: data.email?.trim().toLowerCase(),
           location: data.location?.trim(),
+          gstNumber: data.gstNumber !== undefined ? data.gstNumber.trim().toUpperCase() || null : undefined,
           source: data.source?.trim(),
           product: data.product?.trim(),
           priority: data.priority,

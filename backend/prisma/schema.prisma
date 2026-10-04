@@ -132,6 +132,7 @@ model Customer {
   phone          String
   email          String?
   location       String?
+  gstNumber      String?
   notes          String?
   assignedToId   String?
   createdAt      DateTime  @default(now())
@@ -153,6 +154,7 @@ model Enquiry {
   phone            String
   email            String?
   location         String?
+  gstNumber        String?
   source           String?
   product          String?
   assignedToId     String?

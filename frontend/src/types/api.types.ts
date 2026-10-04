@@ -111,6 +111,7 @@ export interface Customer {
   phone: string;
   email: string | null;
   location: string | null;
+  gstNumber?: string | null;
   notes: string | null;
   assignedToId?: string | null;
   createdAt?: string;
@@ -226,6 +227,7 @@ export interface Enquiry {
   phone: string;
   email: string | null;
   location: string | null;
+  gstNumber?: string | null;
   source: string | null;
   product: string | null;
   assignedToId: string | null;
@@ -288,12 +290,14 @@ export interface CreateEnquiryPayload {
     email?: string | null;
     companyName?: string | null;
     location?: string | null;
+    gstNumber?: string | null;
     notes?: string | null;
   };
   companyName?: string;
   phone: string;
   email?: string;
   location?: string;
+  gstNumber?: string;
   source?: string;
   product?: string;
   priority?: Priority;
@@ -306,6 +310,7 @@ export interface UpdateEnquiryPayload {
   phone?: string;
   email?: string | null;
   location?: string | null;
+  gstNumber?: string | null;
   source?: string | null;
   product?: string | null;
   priority?: Priority;

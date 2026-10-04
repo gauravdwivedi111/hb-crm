@@ -43,7 +43,9 @@ import {
   Download,
   Printer,
   Loader2,
+  ExternalLink,
 } from 'lucide-react';
+import { parseGSTIN, openGstPortal } from '../utils/gstUtils';
 
 const MANAGER_ROLES: Role[] = ['ADMIN', 'DGM', 'AGM', 'MANAGER'];
 
@@ -528,6 +530,29 @@ export const EnquiryDetailPage: React.FC = () => {
                   <span>{enquiry.location}</span>
                 </div>
               )}
+              {(enquiry.gstNumber || enquiry.customer?.gstNumber) && (() => {
+                const gstVal = (enquiry.gstNumber || enquiry.customer?.gstNumber || '').trim().toUpperCase();
+                const parsed = parseGSTIN(gstVal);
+                return (
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-mono text-[11px] shadow-2xs">
+                    <span className="font-bold text-slate-900 tracking-wider">GST: {gstVal}</span>
+                    {parsed.isValid && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 font-sans font-semibold">
+                        {parsed.stateName} • {parsed.entityType}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void openGstPortal(gstVal)}
+                      className="text-brand-600 hover:text-brand-700 font-sans font-semibold inline-flex items-center gap-0.5 hover:underline cursor-pointer ml-1"
+                      title="Copy GST and open official government portal"
+                    >
+                      <ExternalLink className="w-3 h-3 text-brand-600" />
+                      <span>Verify ↗</span>
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
