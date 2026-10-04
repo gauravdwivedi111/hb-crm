@@ -116,9 +116,8 @@ export class GstService {
     }
 
     try {
-      // Some RapidAPI providers use /gstin/{gstin} (like the one shown in your RapidAPI console),
-      // while others use /free/gstin/{gstin}. We try the primary path first and fallback gracefully if 404.
-      const primaryUrl = `https://${config.gst.rapidApiHost}/gstin/${cleanGst}`;
+      // Primary URL for gst-return-status is /free/gstin/{gstin}
+      const primaryUrl = `https://${config.gst.rapidApiHost}/free/gstin/${cleanGst}`;
       console.info(`[GST] Querying live GST data from ${primaryUrl}...`);
 
       let res = await fetch(primaryUrl, {
@@ -131,7 +130,7 @@ export class GstService {
       });
 
       if (res.status === 404) {
-        const fallbackUrl = `https://${config.gst.rapidApiHost}/free/gstin/${cleanGst}`;
+        const fallbackUrl = `https://${config.gst.rapidApiHost}/gstin/${cleanGst}`;
         console.info(`[GST] Primary path returned 404, attempting fallback path: ${fallbackUrl}...`);
         res = await fetch(fallbackUrl, {
           method: 'GET',
@@ -190,6 +189,7 @@ export class GstService {
 
       // Extract & Format Principal Place of Business Address
       const rawAddr =
+        payload.adr ||
         payload.pradr?.addr ||
         payload.principal_address ||
         payload.principalPlaceOfBusiness ||
