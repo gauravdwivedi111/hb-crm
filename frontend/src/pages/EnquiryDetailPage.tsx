@@ -46,8 +46,10 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Eye,
 } from 'lucide-react';
 import { CreateQuotationModal } from '../components/CreateQuotationModal';
+import { ViewQuotationModal } from '../components/ViewQuotationModal';
 import { parseGSTIN, openGstPortal } from '../utils/gstUtils';
 
 const MANAGER_ROLES: Role[] = ['ADMIN', 'DGM', 'AGM', 'MANAGER'];
@@ -101,6 +103,7 @@ export const EnquiryDetailPage: React.FC = () => {
   // Quotation states
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState<boolean>(false);
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
+  const [viewingQuote, setViewingQuote] = useState<Quotation | null>(null);
 
   // Quotation status transition states
   const [transitioningQuotation, setTransitioningQuotation] = useState<{
@@ -993,9 +996,15 @@ export const EnquiryDetailPage: React.FC = () => {
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">
-                              {q.quotationNumber || `Quote #${q.id.slice(-6).toUpperCase()}`}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setViewingQuote(q)}
+                              className="text-[11px] font-bold text-brand-700 hover:text-brand-900 hover:underline uppercase tracking-wider block font-mono cursor-pointer flex items-center gap-1"
+                              title="Click to view full commercial quotation"
+                            >
+                              <span>{q.quotationNumber || `Quote #${q.id.slice(-6).toUpperCase()}`}</span>
+                              <Eye className="w-3 h-3 text-brand-500" />
+                            </button>
                             {(q.customerPhone || enquiry.phone) && (
                               <button
                                 type="button"
@@ -1364,6 +1373,14 @@ export const EnquiryDetailPage: React.FC = () => {
         }}
         initialEnquiryCode={enquiry.enquiryCode || ''}
         initialEnquiryId={enquiry.id}
+      />
+
+      {/* Modal: View / Print Quotation */}
+      <ViewQuotationModal
+        quotation={viewingQuote}
+        isOpen={Boolean(viewingQuote)}
+        onClose={() => setViewingQuote(null)}
+        onStatusUpdated={() => void fetchEnquiry()}
       />
 
       {/* Modal: Quotation Status Transition */}

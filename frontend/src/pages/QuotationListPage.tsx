@@ -16,11 +16,13 @@ import {
   Phone,
   ExternalLink,
   TrendingUp,
+  Eye,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Quotation, QuotationStatus } from '../types/api.types';
 import { CreateQuotationModal } from '../components/CreateQuotationModal';
+import { ViewQuotationModal } from '../components/ViewQuotationModal';
 
 const STATUS_FILTERS: { label: string; value: QuotationStatus | 'ALL' }[] = [
   { label: 'All Quotations', value: 'ALL' },
@@ -54,6 +56,7 @@ export const QuotationListPage: React.FC = () => {
 
   // Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  const [viewingQuote, setViewingQuote] = useState<Quotation | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -344,9 +347,17 @@ export const QuotationListPage: React.FC = () => {
                   return (
                     <tr key={q.id} className="hover:bg-slate-50/70 transition-colors">
                       {/* Quote Number */}
-                      <td className="py-3.5 px-4 font-bold text-slate-900">
-                        {q.quotationNumber || 'QT-DRAFT'}
-                        <div className="text-[10px] text-slate-400 font-normal">
+                      <td className="py-3.5 px-4">
+                        <button
+                          type="button"
+                          onClick={() => setViewingQuote(q)}
+                          className="font-mono text-sm font-bold text-brand-700 hover:text-brand-900 hover:underline flex items-center gap-1.5 cursor-pointer text-left"
+                          title="Click to view full commercial quotation"
+                        >
+                          <span>{q.quotationNumber || 'QT-DRAFT'}</span>
+                          <Eye className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                        </button>
+                        <div className="text-[10px] text-slate-400 font-normal mt-0.5">
                           {new Date(q.createdAt).toLocaleDateString('en-IN', {
                             day: 'numeric',
                             month: 'short',
@@ -431,6 +442,15 @@ export const QuotationListPage: React.FC = () => {
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setViewingQuote(q)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+                            title="View / Print Commercial Quotation"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-slate-600" />
+                          </button>
+
                           {/* Quick status change buttons */}
                           {q.status === 'SENT' && (
                             <>
@@ -509,6 +529,14 @@ export const QuotationListPage: React.FC = () => {
         onSuccess={() => {
           void fetchQuotations();
         }}
+      />
+
+      {/* View / Print Quotation Modal */}
+      <ViewQuotationModal
+        quotation={viewingQuote}
+        isOpen={Boolean(viewingQuote)}
+        onClose={() => setViewingQuote(null)}
+        onStatusUpdated={() => void fetchQuotations()}
       />
     </div>
   );
