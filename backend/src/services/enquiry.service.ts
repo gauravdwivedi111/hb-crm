@@ -149,10 +149,26 @@ export class EnquiryService {
         throw new BadRequestError('Referenced customer does not exist.');
       }
 
-      // 1. Create Enquiry
+      // 1. Generate next sequential enquiryCode
+      const allEnquiryCodes = await tx.enquiry.findMany({
+        where: { enquiryCode: { not: null } },
+        select: { enquiryCode: true },
+      });
+      let maxNum = 1000;
+      for (const item of allEnquiryCodes) {
+        const match = item.enquiryCode ? item.enquiryCode.match(/ENQ-(\d+)/) : null;
+        if (match && match[1]) {
+          const n = parseInt(match[1], 10);
+          if (!isNaN(n) && n > maxNum) maxNum = n;
+        }
+      }
+      const nextCode = `ENQ-${maxNum + 1}`;
+
+      // 2. Create Enquiry
       const enquiry = await tx.enquiry.create({
         data: {
           customerId: targetCustomerId,
+          enquiryCode: nextCode,
           companyName: input.companyName?.trim() || null,
           phone: input.phone.trim(),
           email: input.email?.trim().toLowerCase() || null,
@@ -274,6 +290,7 @@ export class EnquiryService {
       const term = query.search.trim();
       conditions.push({
         OR: [
+          { enquiryCode: { contains: term, mode: 'insensitive' } },
           { companyName: { contains: term, mode: 'insensitive' } },
           { phone: { contains: term, mode: 'insensitive' } },
           { email: { contains: term, mode: 'insensitive' } },
@@ -302,7 +319,7 @@ export class EnquiryService {
         include: {
           customer: true,
           assignedTo: {
-            select: { id: true, name: true, email: true, role: true },
+            select: { id: true, name: true, email: true, role: true, phone: true },
           },
           createdBy: {
             select: { id: true, name: true, email: true, role: true },
@@ -320,6 +337,46 @@ export class EnquiryService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /**
+   * Retrieve a single enquiry by its unique code (e.g. ENQ-1001).
+   */
+  public async getEnquiryByCode(user: AuthUserPayload, code: string) {
+    const cleanCode = (code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      throw new BadRequestError('Enquiry code is required.');
+    }
+
+    const enquiry = await prisma.enquiry.findUnique({
+      where: { enquiryCode: cleanCode },
+      include: {
+        customer: true,
+        assignedTo: {
+          select: { id: true, name: true, email: true, role: true, phone: true },
+        },
+        createdBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+        quotations: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            createdBy: { select: { id: true, name: true, email: true, role: true } },
+          },
+        },
+      },
+    });
+
+    if (!enquiry) {
+      throw new NotFoundError(`Enquiry with code "${cleanCode}" not found.`);
+    }
+
+    const hasAccess = await canAccessEnquiry(user, enquiry.id);
+    if (!hasAccess) {
+      throw new NotFoundError('Enquiry not found');
+    }
+
+    return enquiry;
   }
 
   /**

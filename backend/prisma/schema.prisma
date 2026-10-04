@@ -82,6 +82,7 @@ model User {
   supervisorId      String?
   supervisor        User?     @relation("Supervision", fields: [supervisorId], references: [id])
   subordinates      User[]    @relation("Supervision")
+  phone             String?
   isActive          Boolean   @default(true)
   failedLoginCount  Int       @default(0)
   lockedUntil       DateTime?
@@ -150,6 +151,7 @@ model Enquiry {
   id               String        @id @default(cuid())
   customerId       String
   customer         Customer      @relation(fields: [customerId], references: [id])
+  enquiryCode      String?       @unique
   companyName      String?
   phone            String
   email            String?
@@ -179,6 +181,7 @@ model Enquiry {
   @@index([assignedToId])
   @@index([status])
   @@index([customerId])
+  @@index([enquiryCode])
 }
 
 // Append-only: no update/delete routes should ever be built for this model
@@ -233,20 +236,31 @@ model StatusHistory {
 }
 
 model Quotation {
-  id          String          @id @default(cuid())
-  enquiryId   String
-  enquiry     Enquiry         @relation(fields: [enquiryId], references: [id])
-  createdById String
-  createdBy   User            @relation(fields: [createdById], references: [id])
-  status      QuotationStatus @default(CREATED)
-  amount      Decimal?
-  sentAt      DateTime?
-  respondedAt DateTime?
-  notes       String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id              String          @id @default(cuid())
+  quotationNumber String?         @unique
+  enquiryId       String
+  enquiry         Enquiry         @relation(fields: [enquiryId], references: [id])
+  createdById     String
+  createdBy       User            @relation(fields: [createdById], references: [id])
+  status          QuotationStatus @default(CREATED)
+  amount          Decimal?
+  subtotal        Decimal?
+  taxAmount       Decimal?
+  totalAmount     Decimal?
+  items           Json?
+  terms           String?
+  customerName    String?
+  customerPhone   String?
+  companyName     String?
+  validUntil      DateTime?
+  sentAt          DateTime?
+  respondedAt     DateTime?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   @@index([enquiryId])
+  @@index([quotationNumber])
 }
 
 model Attachment {

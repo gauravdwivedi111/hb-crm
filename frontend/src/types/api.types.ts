@@ -5,6 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: Role;
+  phone?: string | null;
 }
 
 export interface AuthResponseData {
@@ -152,8 +153,17 @@ export interface StatusHistory {
   createdAt: string;
 }
 
+export interface QuotationLineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  amount?: number;
+}
+
 export interface Quotation {
   id: string;
+  quotationNumber?: string | null;
   enquiryId: string;
   createdById: string;
   createdBy?: {
@@ -161,14 +171,33 @@ export interface Quotation {
     name: string;
     email: string;
     role?: Role;
+    phone?: string | null;
   };
   status: QuotationStatus;
   amount: number | string | null;
+  subtotal?: number | string | null;
+  taxAmount?: number | string | null;
+  totalAmount?: number | string | null;
+  items?: QuotationLineItem[] | null;
+  terms?: string | null;
+  notes?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  companyName?: string | null;
+  validUntil?: string | null;
   sentAt: string | null;
   respondedAt: string | null;
-  notes: string | null;
   createdAt: string;
   updatedAt: string;
+  enquiry?: {
+    id: string;
+    enquiryCode?: string | null;
+    companyName?: string | null;
+    phone?: string;
+    email?: string | null;
+    status?: EnquiryStatus;
+    customer?: Customer;
+  };
 }
 
 export interface Attachment {
@@ -221,6 +250,7 @@ export interface Followup {
 
 export interface Enquiry {
   id: string;
+  enquiryCode?: string | null;
   customerId: string;
   customer: Customer;
   companyName: string | null;
@@ -333,8 +363,37 @@ export interface CreateFollowupPayload {
 }
 
 export interface CreateQuotationPayload {
+  enquiryId?: string;
+  enquiryCode?: string;
+  items?: QuotationLineItem[];
+  subtotal?: number | string | null;
+  taxAmount?: number | string | null;
+  totalAmount?: number | string | null;
   amount?: number | string | null;
+  terms?: string | null;
   notes?: string | null;
+  validUntil?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  companyName?: string | null;
+}
+
+export interface QuotationsQueryParams {
+  page?: number;
+  limit?: number;
+  status?: QuotationStatus;
+  search?: string;
+  enquiryId?: string;
+}
+
+export interface QuotationListResponse {
+  quotations: Quotation[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 export interface TransitionQuotationPayload {

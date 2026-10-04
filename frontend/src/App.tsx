@@ -16,6 +16,7 @@ import { AdminUsersPage } from './pages/AdminUsersPage';
 import { EmployeeProfilePage } from './pages/EmployeeProfilePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ImportEnquiriesPage } from './pages/ImportEnquiriesPage';
+import { QuotationListPage } from './pages/QuotationListPage';
 import { UnauthorizedPage } from './pages/UnauthorizedPage';
 import { Role } from './types/api.types';
 
@@ -47,6 +48,7 @@ export const App: React.FC = () => {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="enquiries" element={<EnquiryListPage />} />
             <Route path="enquiries/:id" element={<EnquiryDetailPage />} />
+            <Route path="quotations" element={<QuotationListPage />} />
             <Route path="search" element={<SearchResultsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
 

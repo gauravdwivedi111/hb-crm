@@ -107,10 +107,10 @@ export const Sidebar: React.FC = () => {
               <span>Follow-ups</span>
             </div>
 
-            <div className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-slate-400 select-none">
-              <CheckSquare className="w-4 h-4" />
+            <NavLink to="/quotations" className={navLinkClasses}>
+              <CheckSquare className="w-4 h-4 text-brand-600" />
               <span>Quotations</span>
-            </div>
+            </NavLink>
           </nav>
         </div>
       </div>

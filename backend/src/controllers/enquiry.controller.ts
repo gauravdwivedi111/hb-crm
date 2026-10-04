@@ -151,6 +151,33 @@ export class EnquiryController {
   }
 
   /**
+   * GET /enquiries/code/:code
+   * Get single enquiry details by unique enquiryCode (e.g. ENQ-1001).
+   */
+  public async getByCode(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError();
+      }
+
+      const rawCode = req.params.code;
+      const code = Array.isArray(rawCode) ? rawCode[0] : rawCode;
+      if (!code || typeof code !== 'string' || code.trim() === '') {
+        throw new BadRequestError('Valid Enquiry Code is required');
+      }
+
+      const enquiry = await enquiryService.getEnquiryByCode(req.user, code.trim());
+
+      res.status(200).json({
+        status: 'success',
+        data: { enquiry },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * GET /enquiries/:id
    * Get single enquiry details (returns 404 if not found or unauthorized).
    */

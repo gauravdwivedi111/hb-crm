@@ -31,6 +31,8 @@ import {
   ImportEnquiriesResult,
   SystemSettings,
   GstLookupData,
+  QuotationsQueryParams,
+  QuotationListResponse,
 } from '../types/api.types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -263,6 +265,11 @@ export const api = {
       return res.enquiry;
     },
 
+    async getByCode(code: string): Promise<Enquiry> {
+      const res = await request<{ enquiry: Enquiry }>(`/enquiries/code/${encodeURIComponent(code.trim().toUpperCase())}`);
+      return res.enquiry;
+    },
+
     async create(payload: CreateEnquiryPayload): Promise<Enquiry> {
       const res = await request<{ enquiry: Enquiry }>('/enquiries', {
         method: 'POST',
@@ -448,21 +455,73 @@ export const api = {
 
   // Quotation methods
   quotations: {
-    async create(enquiryId: string, payload: CreateQuotationPayload): Promise<Quotation> {
-      return request<Quotation>(`/enquiries/${encodeURIComponent(enquiryId)}/quotations`, {
+    async list(params: QuotationsQueryParams = {}): Promise<QuotationListResponse> {
+      const sp = new URLSearchParams();
+      if (params.page) sp.set('page', String(params.page));
+      if (params.limit) sp.set('limit', String(params.limit));
+      if (params.status) sp.set('status', params.status);
+      if (params.search && params.search.trim()) sp.set('search', params.search.trim());
+      if (params.enquiryId) sp.set('enquiryId', params.enquiryId);
+      const qs = sp.toString();
+      const res = await request<{ status: string; data: QuotationListResponse } | QuotationListResponse>(
+        qs ? `/quotations?${qs}` : '/quotations',
+      );
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as QuotationListResponse;
+    },
+
+    async create(payload: CreateQuotationPayload, enquiryId?: string): Promise<Quotation> {
+      const endpoint = enquiryId ? `/enquiries/${encodeURIComponent(enquiryId)}/quotations` : '/quotations';
+      const res = await request<{ status: string; data: Quotation } | Quotation>(endpoint, {
         method: 'POST',
         body: JSON.stringify(payload),
       });
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as Quotation;
+    },
+
+    async markWhatsAppSent(quotationId: string): Promise<Quotation> {
+      const res = await request<{ status: string; data: Quotation } | Quotation>(
+        `/quotations/${encodeURIComponent(quotationId)}/whatsapp-sent`,
+        {
+          method: 'POST',
+        },
+      );
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as Quotation;
     },
 
     async transitionStatus(
       quotationId: string,
       payload: TransitionQuotationPayload,
     ): Promise<Quotation> {
-      return request<Quotation>(`/quotations/${encodeURIComponent(quotationId)}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify(payload),
-      });
+      const res = await request<{ status: string; data: Quotation } | Quotation>(
+        `/quotations/${encodeURIComponent(quotationId)}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        },
+      );
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as Quotation;
+    },
+
+    async getById(quotationId: string): Promise<Quotation> {
+      const res = await request<{ status: string; data: Quotation } | Quotation>(
+        `/quotations/${encodeURIComponent(quotationId)}`,
+      );
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as Quotation;
     },
   },
 

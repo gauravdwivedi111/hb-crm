@@ -28,6 +28,11 @@ enquiryRouter.get('/gst-lookup/:gstin', (req, res, next) => {
   enquiryController.gstLookup(req, res, next);
 });
 
+// 2d. GET /enquiries/code/:code - Lookup enquiry details by unique code (e.g. ENQ-1001)
+enquiryRouter.get('/code/:code', (req, res, next) => {
+  enquiryController.getByCode(req, res, next);
+});
+
 // 3. GET /enquiries/:id - Single enquiry with 404 anti-enumeration protection
 enquiryRouter.get('/:id', (req, res, next) => {
   enquiryController.getById(req, res, next);

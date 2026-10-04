@@ -44,7 +44,10 @@ import {
   Printer,
   Loader2,
   ExternalLink,
+  Copy,
+  Check,
 } from 'lucide-react';
+import { CreateQuotationModal } from '../components/CreateQuotationModal';
 import { parseGSTIN, openGstPortal } from '../utils/gstUtils';
 
 const MANAGER_ROLES: Role[] = ['ADMIN', 'DGM', 'AGM', 'MANAGER'];
@@ -97,9 +100,7 @@ export const EnquiryDetailPage: React.FC = () => {
 
   // Quotation states
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState<boolean>(false);
-  const [quotationAmount, setQuotationAmount] = useState<string>('');
-  const [quotationNotes, setQuotationNotes] = useState<string>('');
-  const [isSubmittingQuotation, setIsSubmittingQuotation] = useState<boolean>(false);
+  const [copiedCode, setCopiedCode] = useState<boolean>(false);
 
   // Quotation status transition states
   const [transitioningQuotation, setTransitioningQuotation] = useState<{
@@ -298,25 +299,12 @@ export const EnquiryDetailPage: React.FC = () => {
     }
   };
 
-  // 5. Submit New Quotation
-  const handleCreateQuotation = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
-    if (!id) return;
-    setIsSubmittingQuotation(true);
-    try {
-      await api.quotations.create(id, {
-        amount: quotationAmount ? Number(quotationAmount) : null,
-        notes: quotationNotes.trim() || undefined,
-      });
-      setIsQuotationModalOpen(false);
-      setQuotationAmount('');
-      setQuotationNotes('');
-      setActionSuccess('Quotation generated successfully.');
-      await fetchEnquiry();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to generate quotation.');
-    } finally {
-      setIsSubmittingQuotation(false);
+  // 5. Copy Enquiry Code Handler
+  const handleCopyCode = (): void => {
+    if (enquiry?.enquiryCode) {
+      void navigator.clipboard.writeText(enquiry.enquiryCode);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
     }
   };
 
@@ -413,6 +401,16 @@ export const EnquiryDetailPage: React.FC = () => {
         </button>
 
         <div className="flex items-center gap-2.5">
+          {/* Generate Quotation Button */}
+          <button
+            onClick={() => setIsQuotationModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            title="Generate structured quotation with line items and WhatsApp trigger"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Generate Quotation</span>
+          </button>
+
           {/* Export Single Dossier CSV Button */}
           <button
             onClick={() => void handleExportCsv()}
@@ -475,6 +473,22 @@ export const EnquiryDetailPage: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
           <div>
             <div className="flex flex-wrap items-center gap-3 mb-2">
+              {enquiry.enquiryCode && (
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="inline-flex items-center gap-1.5 font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors cursor-pointer group/code"
+                  title="Click to copy Enquiry Code"
+                >
+                  <span>{enquiry.enquiryCode}</span>
+                  {copiedCode ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 text-blue-400 group-hover/code:text-blue-600 shrink-0" />
+                  )}
+                  {copiedCode && <span className="text-[10px] text-emerald-600 font-sans">Copied!</span>}
+                </button>
+              )}
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                 {enquiry.customer?.name || enquiry.companyName || 'Unnamed Lead'}
               </h1>
@@ -978,11 +992,36 @@ export const EnquiryDetailPage: React.FC = () => {
                       {/* Top: Amount & Status Badge */}
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                            Quote #{q.id.slice(-6).toUpperCase()}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">
+                              {q.quotationNumber || `Quote #${q.id.slice(-6).toUpperCase()}`}
+                            </span>
+                            {(q.customerPhone || enquiry.phone) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const phone = (q.customerPhone || enquiry.phone || '').replace(/\D/g, '');
+                                  const targetPhone = phone.length === 10 ? `91${phone}` : phone;
+                                  const text = encodeURIComponent(
+                                    `Hello ${q.customerName || enquiry.customer?.name || enquiry.companyName || 'Customer'},\nHere is your official Quotation ${q.quotationNumber || ''} for ₹${Number(q.totalAmount || q.amount || 0).toLocaleString('en-IN')}.\n\nThank you,\n${q.createdBy?.name || user?.name || 'HB CRM Team'}`
+                                  );
+                                  window.open(`https://wa.me/${targetPhone}?text=${text}`, '_blank');
+                                  void api.quotations.markWhatsAppSent(q.id).then(() => fetchEnquiry());
+                                }}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
+                                title="Send via WhatsApp"
+                              >
+                                <MessageSquare className="w-3 h-3 text-emerald-600" />
+                                <span>WhatsApp</span>
+                              </button>
+                            )}
+                          </div>
                           <span className="text-base font-extrabold text-slate-900 font-mono">
-                            {q.amount != null ? `₹${Number(q.amount).toLocaleString('en-IN')}` : 'Amount TBD'}
+                            {q.totalAmount != null
+                              ? `₹${Number(q.totalAmount).toLocaleString('en-IN')}`
+                              : q.amount != null
+                              ? `₹${Number(q.amount).toLocaleString('en-IN')}`
+                              : 'Amount TBD'}
                           </span>
                         </div>
                         <span
@@ -1315,77 +1354,17 @@ export const EnquiryDetailPage: React.FC = () => {
       )}
 
       {/* Modal: New Quotation */}
-      {isQuotationModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-purple-600" />
-                <h3 className="text-base font-bold text-slate-900">Generate Quotation</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsQuotationModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateQuotation} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Quotation Amount (₹)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-sm font-bold text-slate-400">
-                    ₹
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={quotationAmount}
-                    onChange={(e) => setQuotationAmount(e.target.value)}
-                    placeholder="e.g. 75000"
-                    className="w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 text-slate-900 font-mono font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Notes & Proposal Description (Optional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={quotationNotes}
-                  onChange={(e) => setQuotationNotes(e.target.value)}
-                  placeholder="e.g. Includes enterprise onboarding and 1 year support package"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 text-slate-900"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsQuotationModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingQuotation}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {isSubmittingQuotation ? 'Generating...' : 'Create Quotation'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <CreateQuotationModal
+        isOpen={isQuotationModalOpen}
+        onClose={() => setIsQuotationModalOpen(false)}
+        onSuccess={(_newQuote) => {
+          setIsQuotationModalOpen(false);
+          setActionSuccess('Quotation generated successfully.');
+          void fetchEnquiry();
+        }}
+        initialEnquiryCode={enquiry.enquiryCode || ''}
+        initialEnquiryId={enquiry.id}
+      />
 
       {/* Modal: Quotation Status Transition */}
       {transitioningQuotation && (

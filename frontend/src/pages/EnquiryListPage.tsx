@@ -761,6 +761,11 @@ export const EnquiryListPage: React.FC = () => {
                     {/* Customer Name & Company */}
                     <td className="py-4 px-4 sm:px-6">
                       <div className="flex items-center gap-2">
+                        {item.enquiryCode && (
+                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                            {item.enquiryCode}
+                          </span>
+                        )}
                         <span className="font-semibold text-slate-900 group-hover:text-brand-700 transition-colors">
                           {item.customer?.name || item.companyName || 'Unnamed Lead'}
                         </span>
