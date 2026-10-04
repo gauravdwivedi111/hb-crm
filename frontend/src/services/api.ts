@@ -33,6 +33,12 @@ import {
   GstLookupData,
   QuotationsQueryParams,
   QuotationListResponse,
+  Product,
+  ProductListResponse,
+  ProductsQueryParams,
+  CreateProductPayload,
+  UpdateProductPayload,
+  BulkProductUpsertResult,
 } from '../types/api.types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -722,6 +728,140 @@ export const api = {
 
     async getForwardingStatus(): Promise<{ allowEmployeeReassignment: boolean }> {
       return request<{ allowEmployeeReassignment: boolean }>('/settings/forwarding-status');
+    },
+  },
+
+  // Products and Price List methods
+  products: {
+    async list(params: ProductsQueryParams = {}): Promise<ProductListResponse> {
+      const sp = new URLSearchParams();
+      if (params.page) sp.set('page', String(params.page));
+      if (params.limit) sp.set('limit', String(params.limit));
+      if (params.search && params.search.trim()) sp.set('search', params.search.trim());
+      if (params.brand) sp.set('brand', params.brand);
+      if (params.category) sp.set('category', params.category);
+      if (params.isActive !== undefined) sp.set('isActive', String(params.isActive));
+      const qs = sp.toString();
+      const res = await request<{ status: string; data: ProductListResponse } | ProductListResponse>(
+        qs ? `/products?${qs}` : '/products',
+      );
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as ProductListResponse;
+    },
+
+    async search(searchTerm: string, limit: number = 15): Promise<Product[]> {
+      const sp = new URLSearchParams();
+      if (searchTerm) sp.set('q', searchTerm);
+      if (limit) sp.set('limit', String(limit));
+      const res = await request<{ status: string; data: Product[] } | Product[]>(
+        `/products/search?${sp.toString()}`,
+      );
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as Product[];
+    },
+
+    async getById(id: string): Promise<Product> {
+      const res = await request<{ status: string; data: Product } | Product>(
+        `/products/${encodeURIComponent(id)}`,
+      );
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as Product;
+    },
+
+    async create(payload: CreateProductPayload): Promise<Product> {
+      const res = await request<{ status: string; data: Product } | Product>('/products', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as Product;
+    },
+
+    async update(id: string, payload: UpdateProductPayload): Promise<Product> {
+      const res = await request<{ status: string; data: Product } | Product>(
+        `/products/${encodeURIComponent(id)}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        },
+      );
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as Product;
+    },
+
+    async bulkUploadCsv(file: File): Promise<BulkProductUpsertResult> {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await request<{ status: string; data: BulkProductUpsertResult } | BulkProductUpsertResult>(
+        '/products/bulk-csv',
+        {
+          method: 'POST',
+          body: formData,
+        },
+      );
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as BulkProductUpsertResult;
+    },
+
+    async exportCsv(brand?: string): Promise<void> {
+      const headers: Record<string, string> = {};
+      if (inMemoryAccessToken) {
+        headers['Authorization'] = `Bearer ${inMemoryAccessToken}`;
+      }
+      const qs = brand && brand !== 'ALL' ? `?brand=${encodeURIComponent(brand)}` : '';
+      const response = await fetch(`${API_BASE_URL}/products/export${qs}`, {
+        method: 'GET',
+        headers,
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error(`Export failed with status ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `products-catalog-${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    },
+
+    async downloadTemplate(): Promise<void> {
+      const headers: Record<string, string> = {};
+      if (inMemoryAccessToken) {
+        headers['Authorization'] = `Bearer ${inMemoryAccessToken}`;
+      }
+      const response = await fetch(`${API_BASE_URL}/products/template`, {
+        method: 'GET',
+        headers,
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error(`Template download failed with status ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'price-list-template.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     },
   },
 };

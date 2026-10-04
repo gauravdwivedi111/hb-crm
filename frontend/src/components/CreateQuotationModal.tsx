@@ -12,6 +12,7 @@ import {
   Building2,
   Phone,
   MessageSquare,
+  Loader2,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +21,7 @@ import {
   Quotation,
   QuotationLineItem,
   CreateQuotationPayload,
+  Product,
 } from '../types/api.types';
 
 interface CreateQuotationModalProps {
@@ -51,6 +53,11 @@ export const CreateQuotationModal: React.FC<CreateQuotationModalProps> = ({
   const [items, setItems] = useState<QuotationLineItem[]>([
     { description: '', quantity: 1, unitPrice: 0, taxRate: 18, amount: 0 },
   ]);
+
+  // Product Catalog Autocomplete State
+  const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [isSearchingProducts, setIsSearchingProducts] = useState<boolean>(false);
 
   // General fields
   const [validityDays, setValidityDays] = useState<number>(15);
@@ -154,6 +161,42 @@ export const CreateQuotationModal: React.FC<CreateQuotationModalProps> = ({
       next[index] = item;
       return next;
     });
+  };
+
+  const handleDescriptionChange = (index: number, value: string) => {
+    handleItemChange(index, 'description', value);
+    if (value.trim().length >= 2) {
+      setActiveSearchIndex(index);
+      setIsSearchingProducts(true);
+      void api.products
+        .search(value.trim(), 8)
+        .then((res) => {
+          setSearchResults(res);
+          setIsSearchingProducts(false);
+        })
+        .catch(() => {
+          setIsSearchingProducts(false);
+        });
+    } else {
+      setSearchResults([]);
+      setActiveSearchIndex(null);
+    }
+  };
+
+  const selectProduct = (p: Product, index: number) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const target = { ...next[index] };
+      target.description = p.code ? `[${p.code}] ${p.name}` : p.name;
+      target.unitPrice = Number(p.unitPrice) || 0;
+      target.taxRate = Number(p.taxRate) || 18;
+      const qty = Number(target.quantity) || 1;
+      target.amount = qty * target.unitPrice;
+      next[index] = target;
+      return next;
+    });
+    setActiveSearchIndex(null);
+    setSearchResults([]);
   };
 
   const handleAddItem = () => {
@@ -430,15 +473,70 @@ export const CreateQuotationModal: React.FC<CreateQuotationModalProps> = ({
                     const lineTotal = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
                     return (
                       <tr key={idx} className="hover:bg-slate-50/60">
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Industrial Valve Model X-200"
-                            value={item.description}
-                            onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
-                          />
+                        <td className="p-2 relative">
+                          <div className="relative">
+                            <input
+                              type="text"
+                              required
+                              placeholder="Type to search 2,600+ items (e.g. KOHLER, SIKA, DR. FIXIT)..."
+                              value={item.description}
+                              onChange={(e) => handleDescriptionChange(idx, e.target.value)}
+                              onFocus={() => {
+                                if (item.description.trim().length >= 2) {
+                                  handleDescriptionChange(idx, item.description);
+                                }
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
+                            />
+                            {isSearchingProducts && activeSearchIndex === idx && (
+                              <div className="absolute right-2 top-2">
+                                <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin" />
+                              </div>
+                            )}
+                          </div>
+
+                          {activeSearchIndex === idx && searchResults.length > 0 && (
+                            <div className="absolute left-2 right-2 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-100">
+                              <div className="p-1.5 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                                <span>Catalog Matches ({searchResults.length})</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveSearchIndex(null)}
+                                  className="text-slate-400 hover:text-slate-600"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                              {searchResults.map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => selectProduct(p, idx)}
+                                  className="w-full p-2 text-left hover:bg-brand-50/70 transition-colors cursor-pointer flex items-center justify-between gap-2"
+                                >
+                                  <div>
+                                    <div className="font-semibold text-slate-900 text-xs flex items-center gap-1.5">
+                                      <span className="font-mono text-[10px] font-bold px-1 py-0.5 rounded bg-slate-100 text-slate-700">
+                                        {p.code}
+                                      </span>
+                                      <span>{p.name}</span>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 mt-0.5">
+                                      {p.brand && <span className="font-medium text-brand-600 mr-1.5">{p.brand}</span>}
+                                      {p.category && <span>{p.category} • </span>}
+                                      <span>Unit: {p.unit || 'Pcs'}</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <div className="font-mono font-bold text-xs text-slate-900">
+                                      ₹{Number(p.unitPrice).toLocaleString('en-IN')}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 font-mono">GST {p.taxRate}%</div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td className="p-2">
                           <input

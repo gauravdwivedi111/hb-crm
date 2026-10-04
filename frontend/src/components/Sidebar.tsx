@@ -11,6 +11,7 @@ import {
   Search,
   ShieldCheck,
   UploadCloud,
+  Package,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -110,6 +111,11 @@ export const Sidebar: React.FC = () => {
             <NavLink to="/quotations" className={navLinkClasses}>
               <CheckSquare className="w-4 h-4 text-brand-600" />
               <span>Quotations</span>
+            </NavLink>
+
+            <NavLink to="/products" className={navLinkClasses}>
+              <Package className="w-4 h-4 text-brand-600" />
+              <span>Products & Prices</span>
             </NavLink>
           </nav>
         </div>

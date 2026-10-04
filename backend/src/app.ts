@@ -17,6 +17,7 @@ import { searchRouter } from './routes/search.routes.js';
 import { userRouter } from './routes/user.routes.js';
 import { importRouter } from './routes/import.routes.js';
 import { settingsRouter } from './routes/settings.routes.js';
+import { productRouter } from './routes/product.routes.js';
 import { apiRouter } from './routes/index.js';
 import { ForbiddenError } from './utils/errors.js';
 import { generalRateLimiter } from './middleware/auth.middleware.js';
@@ -124,6 +125,9 @@ export const createApp = (): Express => {
 
   // System settings routes (GET /settings, PATCH /settings - Admin only, GET /settings/forwarding-status)
   app.use('/settings', settingsRouter);
+
+  // Products and Price List routes (GET /products, POST /products/bulk-csv, etc.)
+  app.use('/products', productRouter);
 
   // Central API router for entity endpoints
   app.use('/api', apiRouter);

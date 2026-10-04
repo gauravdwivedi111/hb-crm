@@ -17,6 +17,7 @@ import { EmployeeProfilePage } from './pages/EmployeeProfilePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ImportEnquiriesPage } from './pages/ImportEnquiriesPage';
 import { QuotationListPage } from './pages/QuotationListPage';
+import { ProductListPage } from './pages/ProductListPage';
 import { UnauthorizedPage } from './pages/UnauthorizedPage';
 import { Role } from './types/api.types';
 
@@ -49,6 +50,7 @@ export const App: React.FC = () => {
             <Route path="enquiries" element={<EnquiryListPage />} />
             <Route path="enquiries/:id" element={<EnquiryDetailPage />} />
             <Route path="quotations" element={<QuotationListPage />} />
+            <Route path="products" element={<ProductListPage />} />
             <Route path="search" element={<SearchResultsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
 

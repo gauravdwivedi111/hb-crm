@@ -570,4 +570,90 @@ export interface GstLookupData {
   message?: string;
 }
 
+// Product & Price List Module Types
+export interface Product {
+  id: string;
+  code: string;
+  name: string;
+  brand: string | null;
+  category: string | null;
+  subCategory?: string | null;
+  department?: string | null;
+  description: string | null;
+  packSize: string | null;
+  unit: string;
+  hsnCode: string | null;
+  taxRate: number;
+  unitPrice: number;
+  mrp: number | null;
+  purchasePrice: number | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductListResponse {
+  products: Product[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  brands: { name: string; count: number }[];
+  categories: { name: string; count: number }[];
+}
+
+export interface ProductsQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  brand?: string;
+  category?: string;
+  isActive?: boolean;
+}
+
+export interface CreateProductPayload {
+  code: string;
+  name: string;
+  brand?: string;
+  category?: string;
+  subCategory?: string;
+  department?: string;
+  description?: string;
+  packSize?: string;
+  unit?: string;
+  hsnCode?: string;
+  taxRate?: number;
+  unitPrice: number;
+  mrp?: number;
+  purchasePrice?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateProductPayload {
+  name?: string;
+  brand?: string;
+  category?: string;
+  subCategory?: string;
+  department?: string;
+  description?: string;
+  packSize?: string;
+  unit?: string;
+  hsnCode?: string;
+  taxRate?: number;
+  unitPrice?: number;
+  mrp?: number;
+  purchasePrice?: number;
+  isActive?: boolean;
+}
+
+export interface BulkProductUpsertResult {
+  totalProcessed: number;
+  created: number;
+  updated: number;
+  errors: { row: number; reason: string }[];
+}
+
+
 
