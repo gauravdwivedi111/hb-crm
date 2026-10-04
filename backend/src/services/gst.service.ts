@@ -116,10 +116,12 @@ export class GstService {
     }
 
     try {
-      const url = `https://${config.gst.rapidApiHost}/free/gstin/${cleanGst}`;
-      console.info(`[GST] Querying live GST data from ${url}...`);
+      // Some RapidAPI providers use /gstin/{gstin} (like the one shown in your RapidAPI console),
+      // while others use /free/gstin/{gstin}. We try the primary path first and fallback gracefully if 404.
+      const primaryUrl = `https://${config.gst.rapidApiHost}/gstin/${cleanGst}`;
+      console.info(`[GST] Querying live GST data from ${primaryUrl}...`);
 
-      const res = await fetch(url, {
+      let res = await fetch(primaryUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -127,6 +129,19 @@ export class GstService {
           'x-rapidapi-host': config.gst.rapidApiHost,
         },
       });
+
+      if (res.status === 404) {
+        const fallbackUrl = `https://${config.gst.rapidApiHost}/free/gstin/${cleanGst}`;
+        console.info(`[GST] Primary path returned 404, attempting fallback path: ${fallbackUrl}...`);
+        res = await fetch(fallbackUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-rapidapi-key': config.gst.rapidApiKey,
+            'x-rapidapi-host': config.gst.rapidApiHost,
+          },
+        });
+      }
 
       if (!res.ok) {
         const errorText = await res.text();
@@ -143,36 +158,80 @@ export class GstService {
       }
 
       const json = (await res.json()) as any;
-      const payload = (json?.data || json?.result || json || {}) as any;
+      const payload = (json?.data || json?.result || json?.data?.gstin || json || {}) as any;
 
-      // Extract Legal Name and Trade Name
-      const legalName = (payload.lgnm || payload.legalName || payload.tradeName || '').trim();
-      const tradeName = (payload.tradeName || payload.lgnm || '').trim();
-      const status = (payload.sts || payload.status || 'Active').trim();
-      const constitution = (payload.ctb || payload.constitution || offlineConstitution).trim();
-      const registrationDate = payload.rgdt || payload.registrationDate;
+      // Extract Legal Name and Trade Name (handle various API schemas)
+      const legalName = (
+        payload.lgnm ||
+        payload.legalName ||
+        payload.legal_name ||
+        payload.tradeName ||
+        payload.trade_name ||
+        ''
+      ).trim();
+
+      const tradeName = (
+        payload.tradeName ||
+        payload.trade_name ||
+        payload.trade_nam ||
+        payload.lgnm ||
+        payload.legalName ||
+        ''
+      ).trim();
+
+      const status = (payload.sts || payload.status || payload.current_status || 'Active').trim();
+      const constitution = (
+        payload.ctb ||
+        payload.constitution ||
+        payload.entity_type ||
+        offlineConstitution
+      ).trim();
+      const registrationDate = payload.rgdt || payload.registrationDate || payload.registration_date;
 
       // Extract & Format Principal Place of Business Address
-      const addrObj = payload.pradr?.addr || payload.address || {};
-      const buildingNumber = (addrObj.bno || '').trim();
-      const buildingName = (addrObj.bnm || '').trim();
-      const street = (addrObj.st || '').trim();
-      const locality = (addrObj.loc || '').trim();
-      const district = (addrObj.dst || '').trim();
-      const state = (addrObj.stcd || offlineState).trim();
-      const pincode = (addrObj.pncd || '').trim();
+      const rawAddr =
+        payload.pradr?.addr ||
+        payload.principal_address ||
+        payload.principalPlaceOfBusiness ||
+        payload.address ||
+        {};
 
-      const addressComponents = [
-        buildingNumber ? `${buildingNumber}` : '',
-        buildingName,
-        street,
-        locality,
-        district,
-        state,
-        pincode ? `PIN: ${pincode}` : '',
-      ].filter(Boolean);
+      let fullAddress = '';
+      let buildingNumber: string | undefined;
+      let buildingName: string | undefined;
+      let street: string | undefined;
+      let locality: string | undefined;
+      let district: string | undefined;
+      let state: string | undefined;
+      let pincode: string | undefined;
 
-      const fullAddress = addressComponents.join(', ');
+      if (typeof rawAddr === 'string' && rawAddr.trim()) {
+        fullAddress = rawAddr.trim();
+      } else if (typeof rawAddr === 'object' && rawAddr !== null) {
+        buildingNumber = (rawAddr.bno || rawAddr.buildingNumber || '').trim();
+        buildingName = (rawAddr.bnm || rawAddr.buildingName || '').trim();
+        street = (rawAddr.st || rawAddr.street || '').trim();
+        locality = (rawAddr.loc || rawAddr.locality || rawAddr.city || '').trim();
+        district = (rawAddr.dst || rawAddr.district || '').trim();
+        state = (rawAddr.stcd || rawAddr.state || offlineState).trim();
+        pincode = (rawAddr.pncd || rawAddr.pincode || rawAddr.postalCode || '').trim();
+
+        const addressComponents = [
+          buildingNumber ? `${buildingNumber}` : '',
+          buildingName,
+          street,
+          locality,
+          district,
+          state,
+          pincode ? `PIN: ${pincode}` : '',
+        ].filter(Boolean);
+
+        fullAddress = addressComponents.join(', ');
+      }
+
+      if (!fullAddress) {
+        fullAddress = offlineState;
+      }
 
       return {
         success: true,
@@ -193,9 +252,9 @@ export class GstService {
           district: district || undefined,
           state: state || undefined,
           pincode: pincode || undefined,
-          fullAddress: fullAddress || offlineState,
+          fullAddress,
         },
-        fullAddress: fullAddress || offlineState,
+        fullAddress,
       };
     } catch (err) {
       console.error(`[GST] Exception during RapidAPI request for ${cleanGst}:`, err);
