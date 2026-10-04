@@ -159,6 +159,8 @@ export interface QuotationLineItem {
   unitPrice: number;
   taxRate: number;
   amount?: number;
+  hsn?: string;
+  hsnCode?: string;
 }
 
 export interface Quotation {

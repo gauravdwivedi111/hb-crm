@@ -60,9 +60,9 @@ export const CreateQuotationModal: React.FC<CreateQuotationModalProps> = ({
   const [isSearchingProducts, setIsSearchingProducts] = useState<boolean>(false);
 
   // General fields
-  const [validityDays, setValidityDays] = useState<number>(15);
+  const [validityDays, setValidityDays] = useState<number>(10);
   const [terms, setTerms] = useState<string>(
-    '1. 50% advance along with purchase order.\n2. Balance against dispatch / delivery.\n3. Prices inclusive of GST as indicated.',
+    '1) 100% ADVANCE PAYMENTS.\n2) TRANSPORT EXTRA.\n3) RATE VALID ONLY FOR 10 DAYS.',
   );
   const [notes, setNotes] = useState<string>('');
   const [employeePhone, setEmployeePhone] = useState<string>(user?.phone || '');
@@ -190,6 +190,8 @@ export const CreateQuotationModal: React.FC<CreateQuotationModalProps> = ({
       target.description = p.code ? `[${p.code}] ${p.name}` : p.name;
       target.unitPrice = Number(p.unitPrice) || 0;
       target.taxRate = Number(p.taxRate) || 18;
+      target.hsn = p.hsnCode || '39172110';
+      target.hsnCode = p.hsnCode || '39172110';
       const qty = Number(target.quantity) || 1;
       target.amount = qty * target.unitPrice;
       next[index] = target;
@@ -461,9 +463,10 @@ export const CreateQuotationModal: React.FC<CreateQuotationModalProps> = ({
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
                     <th className="py-2.5 px-3">Item Description *</th>
-                    <th className="py-2.5 px-3 w-20">Qty</th>
+                    <th className="py-2.5 px-2 w-24">HSN / SAC</th>
+                    <th className="py-2.5 px-2 w-16">Qty</th>
                     <th className="py-2.5 px-3 w-28">Unit Price (₹)</th>
-                    <th className="py-2.5 px-3 w-24">GST Rate</th>
+                    <th className="py-2.5 px-2 w-24">GST Rate</th>
                     <th className="py-2.5 px-3 w-28 text-right">Amount (₹)</th>
                     <th className="py-2.5 px-2 w-10 text-center"></th>
                   </tr>
@@ -537,6 +540,18 @@ export const CreateQuotationModal: React.FC<CreateQuotationModalProps> = ({
                               ))}
                             </div>
                           )}
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            placeholder="39172110"
+                            value={item.hsnCode || item.hsn || ''}
+                            onChange={(e) => {
+                              handleItemChange(idx, 'hsn', e.target.value);
+                              handleItemChange(idx, 'hsnCode', e.target.value);
+                            }}
+                            className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono"
+                          />
                         </td>
                         <td className="p-2">
                           <input
