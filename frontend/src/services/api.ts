@@ -30,6 +30,7 @@ import {
   NotificationsQueryParams,
   ImportEnquiriesResult,
   SystemSettings,
+  GstLookupData,
 } from '../types/api.types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
@@ -292,6 +293,10 @@ export const api = {
         body: JSON.stringify({ assignedToId }),
       });
       return res.enquiry;
+    },
+
+    async lookupGst(gstin: string): Promise<GstLookupData> {
+      return request<GstLookupData>(`/enquiries/gst-lookup/${encodeURIComponent(gstin.trim().toUpperCase())}`);
     },
 
     async exportCsv(params: Omit<EnquiriesQueryParams, 'page' | 'limit'> = {}): Promise<void> {

@@ -23,6 +23,11 @@ enquiryRouter.get('/export', (req, res, next) => {
   enquiryController.exportEnquiries(req, res, next);
 });
 
+// 2c. GET /enquiries/gst-lookup/:gstin - Live GST taxpayer verification and details retrieval
+enquiryRouter.get('/gst-lookup/:gstin', (req, res, next) => {
+  enquiryController.gstLookup(req, res, next);
+});
+
 // 3. GET /enquiries/:id - Single enquiry with 404 anti-enumeration protection
 enquiryRouter.get('/:id', (req, res, next) => {
   enquiryController.getById(req, res, next);

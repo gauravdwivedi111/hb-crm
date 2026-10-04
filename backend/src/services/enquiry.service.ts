@@ -38,7 +38,7 @@ export interface CreateEnquiryInput {
   phone: string;
   email?: string;
   location?: string;
-  gstNumber?: string;
+  gstNumber?: string | null;
   source?: string;
   product?: string;
   priority?: Priority;
@@ -61,7 +61,7 @@ export interface UpdateEnquiryInput {
   phone?: string;
   email?: string;
   location?: string;
-  gstNumber?: string;
+  gstNumber?: string | null;
   source?: string;
   product?: string;
   priority?: Priority;
@@ -405,7 +405,10 @@ export class EnquiryService {
           phone: data.phone?.trim(),
           email: data.email?.trim().toLowerCase(),
           location: data.location?.trim(),
-          gstNumber: data.gstNumber !== undefined ? data.gstNumber.trim().toUpperCase() || null : undefined,
+          gstNumber:
+            data.gstNumber !== undefined
+              ? (data.gstNumber ? data.gstNumber.trim().toUpperCase() : null)
+              : undefined,
           source: data.source?.trim(),
           product: data.product?.trim(),
           priority: data.priority,

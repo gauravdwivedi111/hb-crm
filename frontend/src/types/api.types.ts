@@ -496,4 +496,19 @@ export interface SystemSettings {
   updatedAt: string;
 }
 
+export interface GstLookupData {
+  success: boolean;
+  configured: boolean;
+  gstin: string;
+  legalName?: string;
+  tradeName?: string;
+  status?: string;
+  constitution?: string;
+  pan?: string;
+  state?: string;
+  fullAddress?: string;
+  registrationDate?: string;
+  message?: string;
+}
+
 

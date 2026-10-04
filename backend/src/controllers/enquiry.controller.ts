@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { EnquiryStatus, Priority } from '@prisma/client';
 import { enquiryService } from '../services/enquiry.service.js';
 import { exportService } from '../services/export.service.js';
+import { gstService } from '../services/gst.service.js';
 import { UnauthorizedError, BadRequestError } from '../utils/errors.js';
 
 export const inlineCustomerSchema = z.object({
@@ -11,6 +12,7 @@ export const inlineCustomerSchema = z.object({
   email: z.string().trim().email('Invalid customer email').optional().nullable(),
   companyName: z.string().trim().optional().nullable(),
   location: z.string().trim().optional().nullable(),
+  gstNumber: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
 });
 
@@ -22,6 +24,7 @@ export const createEnquirySchema = z
     phone: z.string().trim().min(1, 'Phone is required'),
     email: z.string().trim().email('Invalid email address').optional().nullable(),
     location: z.string().trim().optional().nullable(),
+    gstNumber: z.string().trim().optional().nullable(),
     source: z.string().trim().optional().nullable(),
     product: z.string().trim().optional().nullable(),
     priority: z.nativeEnum(Priority, { message: 'Invalid priority value' }).optional(),
@@ -57,6 +60,7 @@ export const updateEnquirySchema = z
     phone: z.string().trim().min(1).optional(),
     email: z.string().trim().email('Invalid email').optional().nullable(),
     location: z.string().trim().optional().nullable(),
+    gstNumber: z.string().trim().optional().nullable(),
     source: z.string().trim().optional().nullable(),
     product: z.string().trim().optional().nullable(),
     priority: z.nativeEnum(Priority).optional(),
@@ -288,6 +292,29 @@ export class EnquiryController {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
       res.status(200).send(result.csv);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /enquiries/gst-lookup/:gstin
+   * Live GST taxpayer verification and details retrieval.
+   */
+  public async gstLookup(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError();
+      }
+
+      const gstinParam = req.params.gstin;
+      const gstin = (Array.isArray(gstinParam) ? gstinParam[0] : gstinParam) || '';
+      const result = await gstService.lookup(gstin);
+
+      res.status(200).json({
+        status: 'success',
+        data: result,
+      });
     } catch (error) {
       next(error);
     }

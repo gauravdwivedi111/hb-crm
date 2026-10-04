@@ -9,6 +9,7 @@ import {
   User,
   CreateEnquiryPayload,
   EnquiriesPaginationMeta,
+  GstLookupData,
 } from '../types/api.types';
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge';
@@ -35,6 +36,8 @@ import {
   Check,
   CheckCircle2,
   ExternalLink,
+  Sparkles,
+  Info,
 } from 'lucide-react';
 import { parseGSTIN, openGstPortal } from '../utils/gstUtils';
 
@@ -118,6 +121,13 @@ export const EnquiryListPage: React.FC = () => {
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [gstCopiedToast, setGstCopiedToast] = useState<boolean>(false);
+  const [isFetchingLiveGst, setIsFetchingLiveGst] = useState<boolean>(false);
+  const [liveGstData, setLiveGstData] = useState<GstLookupData | null>(null);
+  const [liveGstMessage, setLiveGstMessage] = useState<{
+    type: 'success' | 'info' | 'error';
+    text: string;
+  } | null>(null);
+
   const [formData, setFormData] = useState<CreateEnquiryPayload>({
     customer: {
       name: '',
@@ -156,6 +166,57 @@ export const EnquiryListPage: React.FC = () => {
         location: stateName,
       },
     }));
+  };
+
+  const handleAutoFetchLiveGst = async (gstin: string): Promise<void> => {
+    const clean = gstin?.trim().toUpperCase();
+    if (!clean || clean.length !== 15) return;
+    setIsFetchingLiveGst(true);
+    setLiveGstMessage(null);
+
+    try {
+      const res = await api.enquiries.lookupGst(clean);
+      setLiveGstData(res);
+
+      if (res.configured && res.success) {
+        const businessName = res.legalName || res.tradeName || '';
+        const fullAddress = res.fullAddress || res.state || '';
+
+        setFormData((prev) => ({
+          ...prev,
+          companyName: businessName || prev.companyName,
+          location: fullAddress || prev.location,
+          customer: {
+            ...prev.customer!,
+            companyName: businessName || prev.customer?.companyName || '',
+            location: fullAddress || prev.customer?.location || '',
+            name: prev.customer?.name?.trim() ? prev.customer.name : (res.tradeName || businessName || ''),
+          },
+        }));
+
+        setLiveGstMessage({
+          type: 'success',
+          text: `Auto-filled details for "${businessName}" from official records!`,
+        });
+      } else if (!res.configured) {
+        setLiveGstMessage({
+          type: 'info',
+          text: res.message || 'RAPIDAPI_KEY is not configured on the server yet. To enable 1-click live auto-fetch, set RAPIDAPI_KEY in your Render environment variables.',
+        });
+      } else {
+        setLiveGstMessage({
+          type: 'error',
+          text: res.message || 'Could not fetch details for this GSTIN.',
+        });
+      }
+    } catch (err) {
+      setLiveGstMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Unable to connect to live GST verification service.',
+      });
+    } finally {
+      setIsFetchingLiveGst(false);
+    }
   };
 
   // Debounce search input
@@ -935,14 +996,38 @@ export const EnquiryListPage: React.FC = () => {
 
                   {/* GST Number Field */}
                   <div className="sm:col-span-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-slate-700">
-                        GST Number (Optional)
-                      </label>
-                      <span className="text-[11px] text-slate-400">
-                        15-digit Indian GSTIN
-                      </span>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <label className="block text-xs font-semibold text-slate-700">
+                          GST Number (Optional)
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-mono">15-digit GSTIN</span>
+                      </div>
+
+                      {/* Live Auto-Fetch Button (Enabled when 15 characters entered) */}
+                      {formData.customer?.gstNumber && formData.customer.gstNumber.length === 15 && (
+                        <button
+                          type="button"
+                          onClick={() => void handleAutoFetchLiveGst(formData.customer?.gstNumber || '')}
+                          disabled={isFetchingLiveGst}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-all shadow-xs cursor-pointer disabled:opacity-60"
+                          title="Fetch Legal Name, Trade Name & Principal Address from Government Database"
+                        >
+                          {isFetchingLiveGst ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Fetching Details...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                              <span>⚡ Auto-Fetch Full Business Details</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
+
                     <div className="relative">
                       <input
                         type="text"
@@ -959,6 +1044,9 @@ export const EnquiryListPage: React.FC = () => {
                               gstNumber: val,
                             },
                           }));
+                          if (val.length !== 15) {
+                            setLiveGstMessage(null);
+                          }
                         }}
                         placeholder="e.g. 27AAACA1234A1Z5"
                         className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-slate-900 uppercase"
@@ -970,7 +1058,68 @@ export const EnquiryListPage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* GST Validation Status Card */}
+                    {/* Live Fetch Feedback Notification */}
+                    {liveGstMessage && (
+                      <div
+                        className={`mt-2 p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
+                          liveGstMessage.type === 'success'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                            : liveGstMessage.type === 'info'
+                            ? 'bg-sky-50 border-sky-200 text-sky-900'
+                            : 'bg-red-50 border-red-200 text-red-900'
+                        }`}
+                      >
+                        {liveGstMessage.type === 'success' ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        ) : liveGstMessage.type === 'info' ? (
+                          <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                        )}
+                        <span className="leading-relaxed">{liveGstMessage.text}</span>
+                      </div>
+                    )}
+
+                    {/* Live Data Card (When Legal Name / Trade Name / Address returned) */}
+                    {liveGstData?.configured && liveGstData?.success && liveGstData.legalName && (
+                      <div className="mt-2.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Verified Taxpayer Records
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wide ${
+                              liveGstData.status?.toLowerCase() === 'active'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            ● {liveGstData.status || 'Active'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700">
+                          <div>
+                            <span className="text-[10px] font-semibold text-slate-400 block">Legal Business Name</span>
+                            <span className="font-bold text-slate-900">{liveGstData.legalName}</span>
+                          </div>
+                          {liveGstData.tradeName && liveGstData.tradeName !== liveGstData.legalName && (
+                            <div>
+                              <span className="text-[10px] font-semibold text-slate-400 block">Trade Name</span>
+                              <span className="font-medium text-slate-800">{liveGstData.tradeName}</span>
+                            </div>
+                          )}
+                          {liveGstData.fullAddress && (
+                            <div className="sm:col-span-2">
+                              <span className="text-[10px] font-semibold text-slate-400 block">Principal Place of Business</span>
+                              <span className="text-slate-800 leading-relaxed">{liveGstData.fullAddress}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Offline Validation & Action Card */}
                     {Boolean(formData.customer?.gstNumber) && (() => {
                       const gstParsed = parseGSTIN(formData.customer?.gstNumber || '');
                       if (gstParsed.isValid) {
@@ -989,14 +1138,14 @@ export const EnquiryListPage: React.FC = () => {
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              {formData.customer?.location !== gstParsed.stateName && (
+                              {formData.customer?.location !== gstParsed.stateName && !liveGstData?.fullAddress && (
                                 <button
                                   type="button"
                                   onClick={() => handleAutoFillGstLocation(gstParsed.stateName || '')}
                                   className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[11px] transition-colors cursor-pointer shadow-2xs"
                                   title="Auto-fill City / Location with detected State"
                                 >
-                                  Auto-fill Location
+                                  Auto-fill State
                                 </button>
                               )}
                               <button
@@ -1034,7 +1183,7 @@ export const EnquiryListPage: React.FC = () => {
 
                       return (
                         <p className="mt-1 text-[11px] text-slate-400">
-                          {formData.customer?.gstNumber?.length}/15 characters • Enter full 15-digit GSTIN for instant validation
+                          {formData.customer?.gstNumber?.length}/15 characters • Enter full 15-digit GSTIN to auto-fetch details
                         </p>
                       );
                     })()}

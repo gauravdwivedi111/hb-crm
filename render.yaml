@@ -25,5 +25,7 @@ services:
         value: none
       - key: RESEND_API_KEY
         sync: false
+      - key: RAPIDAPI_KEY
+        sync: false
       - key: EMAIL_FROM_ADDRESS
         value: HB CRM <onboarding@resend.dev>

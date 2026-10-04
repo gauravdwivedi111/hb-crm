@@ -63,4 +63,8 @@ export const config = {
     resendApiKey: process.env.RESEND_API_KEY || '',
     fromAddress: process.env.EMAIL_FROM_ADDRESS || 'HB CRM <onboarding@resend.dev>',
   },
+  gst: {
+    rapidApiKey: process.env.RAPIDAPI_KEY || '',
+    rapidApiHost: process.env.RAPIDAPI_HOST || 'gst-return-status.p.rapidapi.com',
+  },
 } as const;
