@@ -117,18 +117,7 @@ export const EnquiryListPage: React.FC = () => {
   };
 
   // New Enquiry Modal State
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [isCreating, setIsCreating] = useState<boolean>(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [gstCopiedToast, setGstCopiedToast] = useState<boolean>(false);
-  const [isFetchingLiveGst, setIsFetchingLiveGst] = useState<boolean>(false);
-  const [liveGstData, setLiveGstData] = useState<GstLookupData | null>(null);
-  const [liveGstMessage, setLiveGstMessage] = useState<{
-    type: 'success' | 'info' | 'error';
-    text: string;
-  } | null>(null);
-
-  const [formData, setFormData] = useState<CreateEnquiryPayload>({
+  const INITIAL_ENQUIRY_FORM: CreateEnquiryPayload = {
     customer: {
       name: '',
       phone: '',
@@ -149,7 +138,39 @@ export const EnquiryListPage: React.FC = () => {
     expectedValue: '',
     remarks: '',
     assignedToId: '',
-  });
+  };
+
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isCreating, setIsCreating] = useState<boolean>(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [gstCopiedToast, setGstCopiedToast] = useState<boolean>(false);
+  const [isFetchingLiveGst, setIsFetchingLiveGst] = useState<boolean>(false);
+  const [liveGstData, setLiveGstData] = useState<GstLookupData | null>(null);
+  const [liveGstMessage, setLiveGstMessage] = useState<{
+    type: 'success' | 'info' | 'error';
+    text: string;
+  } | null>(null);
+
+  const [formData, setFormData] = useState<CreateEnquiryPayload>(INITIAL_ENQUIRY_FORM);
+
+  const resetFormState = (): void => {
+    setFormData(INITIAL_ENQUIRY_FORM);
+    setCreateError(null);
+    setIsFetchingLiveGst(false);
+    setLiveGstData(null);
+    setLiveGstMessage(null);
+    setGstCopiedToast(false);
+  };
+
+  const handleOpenModal = (): void => {
+    resetFormState();
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = (): void => {
+    setIsModalOpen(false);
+    resetFormState();
+  };
 
   const handleVerifyGst = async (gstin: string): Promise<void> => {
     await openGstPortal(gstin);
@@ -402,22 +423,8 @@ export const EnquiryListPage: React.FC = () => {
       };
 
       const created = await api.enquiries.create(payload);
-      setIsModalOpen(false);
-      // Reset form
-      setFormData({
-        customer: { name: '', phone: '', email: '', companyName: '', location: '', gstNumber: '', notes: '' },
-        companyName: '',
-        phone: '',
-        email: '',
-        location: '',
-        gstNumber: '',
-        source: 'WEBSITE',
-        product: '',
-        priority: 'MEDIUM',
-        expectedValue: '',
-        remarks: '',
-        assignedToId: '',
-      });
+      handleCloseModal();
+      // Navigate to detail page
       // Navigate to detail page
       navigate(`/enquiries/${created.id}`);
     } catch (err) {
@@ -513,10 +520,7 @@ export const EnquiryListPage: React.FC = () => {
           )}
 
           <button
-            onClick={() => {
-              setCreateError(null);
-              setIsModalOpen(true);
-            }}
+            onClick={handleOpenModal}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold shadow-sm transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -725,7 +729,7 @@ export const EnquiryListPage: React.FC = () => {
               </button>
             ) : (
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={handleOpenModal}
                 className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -903,7 +907,12 @@ export const EnquiryListPage: React.FC = () => {
 
       {/* New Enquiry Creation Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseModal();
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
+        >
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="p-6 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
@@ -914,7 +923,8 @@ export const EnquiryListPage: React.FC = () => {
                 </p>
               </div>
               <button
-                onClick={() => setIsModalOpen(false)}
+                type="button"
+                onClick={handleCloseModal}
                 className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -1321,7 +1331,7 @@ export const EnquiryListPage: React.FC = () => {
               <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={handleCloseModal}
                   className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Cancel
