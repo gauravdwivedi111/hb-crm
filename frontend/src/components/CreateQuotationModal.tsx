@@ -222,36 +222,45 @@ export const CreateQuotationModal: React.FC<CreateQuotationModalProps> = ({
   const grandTotal = subtotal + totalTax;
 
   // Format WhatsApp message text
-  const buildWhatsAppText = (quotationNumber?: string) => {
+  const buildWhatsAppText = (quotationNumber?: string, quotationId?: string) => {
     const qNum = quotationNumber || 'QT-XXXX';
     const cName = loadedEnquiry?.customer?.name || loadedEnquiry?.companyName || 'Valued Customer';
     const compName = loadedEnquiry?.companyName || loadedEnquiry?.customer?.companyName || '';
     const code = loadedEnquiry?.enquiryCode || enquiryCode;
+    const pdfLink = quotationId ? `${window.location.origin}/quote/${quotationId}` : '';
 
     const itemLines = items
       .filter((i) => i.description.trim())
       .map((i, idx) => `  ${idx + 1}. *${i.description}* (Qty: ${i.quantity}) - ₹${(i.quantity * i.unitPrice).toLocaleString('en-IN')}`)
       .join('\n');
 
-    return (
-      `*QUOTATION / PROPOSAL*\n` +
-      `--------------------------------\n` +
-      `*Quotation Ref:* ${qNum}\n` +
-      `*Enquiry Ref:* ${code}\n` +
-      `*Client:* ${cName}${compName ? ` (${compName})` : ''}\n` +
-      `*Date:* ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}\n` +
-      `*Validity:* ${validityDays} Days\n\n` +
-      `*Itemized Pricing:*\n${itemLines}\n\n` +
-      `*Subtotal:* ₹${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n` +
-      `*GST / Tax:* ₹${totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n` +
-      `*Grand Total:* ₹${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Incl. GST)\n\n` +
-      `*Terms:*\n${terms}\n` +
-      (notes ? `\n*Notes:*\n${notes}\n` : '') +
-      `--------------------------------\n` +
-      `*Sales Executive:* ${user?.name || 'HB CRM Team'}\n` +
-      (employeePhone ? `*Contact:* ${employeePhone}\n` : '') +
-      `*HB CRM Solutions*`
-    );
+    return [
+      `*HB POLYTECH INDUSTRIES*`,
+      `*COMMERCIAL QUOTATION / PROFORMA INVOICE*`,
+      `--------------------------------`,
+      `*Quotation Ref:* ${qNum}`,
+      `*Enquiry Ref:* ${code}`,
+      `*Client:* ${cName}${compName ? ` (${compName})` : ''}`,
+      `*Date:* ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`,
+      `*Validity:* ${validityDays} Days`,
+      '',
+      pdfLink ? `📄 *Download / View Official Formatted PDF:*\n${pdfLink}\n` : '',
+      `*Itemized Pricing:*\n${itemLines}`,
+      '',
+      `*Subtotal:* ₹${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+      `*GST / Tax:* ₹${totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+      `*Grand Total:* ₹${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Incl. GST)`,
+      '',
+      `*Bank Details for Payment:*`,
+      `AXIS BANK | A/C: 921030005804008 | Branch: RAVET | IFSC: UTIB0003144 | HB POLYTECH INDUSTRIES`,
+      '',
+      `*Terms & Conditions:*\n${terms}`,
+      notes ? `\n*Notes:*\n${notes}` : '',
+      `--------------------------------`,
+      `*Sales Executive:* ${user?.name || 'HB CRM Team'}${employeePhone ? ` (${employeePhone})` : ''}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
   };
 
   const handleSubmit = async (sendViaWhatsApp: boolean = false) => {
@@ -298,7 +307,7 @@ export const CreateQuotationModal: React.FC<CreateQuotationModalProps> = ({
         // Open WhatsApp
         const rawPhone = loadedEnquiry.phone || loadedEnquiry.customer?.phone || '';
         const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-        const messageText = buildWhatsAppText(created.quotationNumber || undefined);
+        const messageText = buildWhatsAppText(created.quotationNumber || undefined, created.id);
         const encodedText = encodeURIComponent(messageText);
 
         const waUrl = cleanPhone

@@ -10,9 +10,12 @@ import {
   Sliders,
   ChevronDown,
   ChevronUp,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { Quotation, QuotationLineItem } from '../types/api.types';
 import { api } from '../services/api';
+import { downloadQuotationPdf, shareQuotationPdfViaWhatsApp } from '../utils/pdfGenerator';
 
 interface ViewQuotationModalProps {
   quotation: Quotation | null;
@@ -200,14 +203,40 @@ export const ViewQuotationModal: React.FC<ViewQuotationModalProps> = ({
   const taxInWords = numberToWordsINR(totalTax);
   const billTotalInWords = numberToWordsINR(grandTotal);
 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [whatsappNotice, setWhatsappNotice] = useState<{
+    show: boolean;
+    phone: string;
+    pdfDownloaded: boolean;
+    publicUrl: string;
+  } | null>(null);
+
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    const sheetEl = document.getElementById('quotation-printable-sheet');
+    if (!sheetEl) return;
+    try {
+      setIsDownloadingPdf(true);
+      const safeQuoteNum = (invoiceNo || 'HBPI').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `HB_Polytech_Quotation_${safeQuoteNum}.pdf`;
+      await downloadQuotationPdf(sheetEl, filename);
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+      window.print();
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const handleWhatsApp = async () => {
     const rawPhone = customerPhone || quotation.customerPhone || quotation.enquiry?.phone || '';
     const phoneDigits = rawPhone.replace(/\D/g, '');
     const targetPhone = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
+    const publicPdfUrl = `${window.location.origin}/quote/${quotation.id}`;
 
     let itemsSummary = '';
     if (rawItems.length > 0) {
@@ -230,6 +259,9 @@ export const ViewQuotationModal: React.FC<ViewQuotationModalProps> = ({
       `*Client:* ${customerName}`,
       `*Destination:* ${destination}`,
       `*GSTIN:* ${customerGstin}`,
+      `---------------------------------------`,
+      `📄 *Download / View Official Formatted PDF:*`,
+      publicPdfUrl,
       `---------------------------------------`,
       `*Itemized Specifications:*`,
       itemsSummary || 'Commercial materials as discussed.',
@@ -255,14 +287,31 @@ export const ViewQuotationModal: React.FC<ViewQuotationModalProps> = ({
       .filter(Boolean)
       .join('\n');
 
-    const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/${targetPhone}?text=${encoded}`, '_blank');
-
     try {
+      setIsGeneratingPdf(true);
+      const sheetEl = document.getElementById('quotation-printable-sheet');
+      const safeQuoteNum = (invoiceNo || 'HBPI').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `HB_Polytech_Quotation_${safeQuoteNum}.pdf`;
+
+      if (sheetEl) {
+        const result = await shareQuotationPdfViaWhatsApp(sheetEl, filename, targetPhone, message);
+        setWhatsappNotice({
+          show: true,
+          phone: targetPhone,
+          pdfDownloaded: result.pdfDownloaded,
+          publicUrl: publicPdfUrl,
+        });
+      } else {
+        const encoded = encodeURIComponent(message);
+        window.open(`https://wa.me/${targetPhone}?text=${encoded}`, '_blank');
+      }
+
       await api.quotations.markWhatsAppSent(quotation.id);
       if (onStatusUpdated) onStatusUpdated();
     } catch (err) {
-      console.error('Failed to update WhatsApp sent status:', err);
+      console.error('Failed to dispatch via WhatsApp:', err);
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -362,21 +411,41 @@ export const ViewQuotationModal: React.FC<ViewQuotationModalProps> = ({
 
               <button
                 type="button"
+                disabled={isGeneratingPdf}
                 onClick={handleWhatsApp}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                title="Send quote details to customer on WhatsApp"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                title="Send formatted PDF & official quote to customer on WhatsApp"
               >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Send WhatsApp</span>
+                {isGeneratingPdf ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <MessageSquare className="w-3.5 h-3.5" />
+                )}
+                <span>{isGeneratingPdf ? 'Preparing PDF...' : 'Send via WhatsApp'}</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isDownloadingPdf}
+                onClick={handleDownloadPdf}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                title="Download official high-resolution PDF file directly"
+              >
+                {isDownloadingPdf ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+                <span>{isDownloadingPdf ? 'Generating...' : 'Download PDF'}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handlePrint}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
               >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print / PDF</span>
+                <Printer className="w-3.5 h-3.5 text-slate-600" />
+                <span>Print</span>
               </button>
 
               <button
@@ -388,6 +457,40 @@ export const ViewQuotationModal: React.FC<ViewQuotationModalProps> = ({
               </button>
             </div>
           </div>
+
+          {/* WhatsApp Success & PDF Download Guidance Banner */}
+          {whatsappNotice && whatsappNotice.show && (
+            <div className="mx-5 my-2.5 p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-950 flex items-start justify-between gap-3 shadow-xs no-print">
+              <div className="flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-emerald-900 text-xs">
+                    WhatsApp Chat Opened & Formatted PDF Prepared!
+                  </div>
+                  <div className="text-[11px] text-emerald-800 mt-1 leading-relaxed">
+                    {whatsappNotice.pdfDownloaded ? (
+                      <>
+                        1. The official formatted PDF (<strong>HB_Polytech_Quotation.pdf</strong>) was <strong>automatically downloaded</strong> to your device's Downloads folder.<br />
+                        2. WhatsApp chat with <strong>+{whatsappNotice.phone}</strong> has opened with the proposal.<br />
+                        3. <strong>Attach the downloaded PDF directly into the WhatsApp chat</strong>, or the client can open the official online PDF link included in the message: <a href={whatsappNotice.publicUrl} target="_blank" rel="noreferrer" className="underline font-semibold text-emerald-900">{whatsappNotice.publicUrl}</a>
+                      </>
+                    ) : (
+                      <>
+                        WhatsApp chat has opened with the direct online PDF link: <a href={whatsappNotice.publicUrl} target="_blank" rel="noreferrer" className="underline font-semibold text-emerald-900">{whatsappNotice.publicUrl}</a>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWhatsappNotice(null)}
+                className="text-emerald-700 hover:text-emerald-900 p-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Quick Customizer Drawer (Hidden when printing) */}
           {showCustomizer && (

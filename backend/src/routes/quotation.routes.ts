@@ -4,7 +4,12 @@ import { requireAuth } from '../middleware/auth.middleware.js';
 
 export const quotationRouter = Router();
 
-// All quotation routes require authentication
+// Public route for customer view / download (no auth required)
+quotationRouter.get('/public/:id', (req, res, next) => {
+  quotationController.getPublicById(req, res, next);
+});
+
+// All remaining quotation routes require authentication
 quotationRouter.use(requireAuth);
 
 // 1. GET /quotations - List all quotations with filters & search

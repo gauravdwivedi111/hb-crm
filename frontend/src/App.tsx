@@ -18,6 +18,7 @@ import { NotificationsPage } from './pages/NotificationsPage';
 import { ImportEnquiriesPage } from './pages/ImportEnquiriesPage';
 import { QuotationListPage } from './pages/QuotationListPage';
 import { ProductListPage } from './pages/ProductListPage';
+import { PublicQuotationPage } from './pages/PublicQuotationPage';
 import { UnauthorizedPage } from './pages/UnauthorizedPage';
 import { Role } from './types/api.types';
 
@@ -32,6 +33,10 @@ export const App: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Public quotation document viewer for customers (no login required) */}
+          <Route path="/quote/:id" element={<PublicQuotationPage />} />
+          <Route path="/quotation/view/:id" element={<PublicQuotationPage />} />
 
           {/* Unauthorized state route */}
           <Route path="/unauthorized" element={<UnauthorizedPage />} />

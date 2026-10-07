@@ -195,6 +195,24 @@ export class QuotationController {
       next(error);
     }
   }
+
+  /**
+   * GET /quotations/public/:id
+   * Public retrieval for customer view/download without authentication.
+   */
+  public async getPublicById(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const quotationId = this.getId(req);
+      const quotation = await quotationService.getPublicQuotation(quotationId);
+
+      res.status(200).json({
+        status: 'success',
+        data: quotation,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const quotationController = new QuotationController();

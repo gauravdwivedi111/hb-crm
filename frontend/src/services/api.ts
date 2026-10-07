@@ -529,6 +529,16 @@ export const api = {
       }
       return res as Quotation;
     },
+
+    async getPublicById(identifier: string): Promise<Quotation> {
+      const res = await request<{ status: string; data: Quotation } | Quotation>(
+        `/quotations/public/${encodeURIComponent(identifier)}`,
+      );
+      if ('data' in res && res.data) {
+        return res.data;
+      }
+      return res as Quotation;
+    },
   },
 
   // Attachment methods

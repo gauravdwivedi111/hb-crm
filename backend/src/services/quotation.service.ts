@@ -513,6 +513,39 @@ export class QuotationService {
 
     return quotation;
   }
+
+  /**
+   * Retrieves a single quotation for public client view without requiring internal auth.
+   */
+  public async getPublicQuotation(identifier: string) {
+    const quotation = await prisma.quotation.findFirst({
+      where: {
+        OR: [
+          { id: identifier },
+          { quotationNumber: identifier },
+        ],
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, role: true, phone: true },
+        },
+        enquiry: {
+          include: {
+            customer: true,
+            assignedTo: {
+              select: { id: true, name: true, email: true, role: true, phone: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!quotation) {
+      throw new NotFoundError('Quotation not found');
+    }
+
+    return quotation;
+  }
 }
 
 export const quotationService = new QuotationService();
